@@ -12,10 +12,10 @@ not the marker syntax being defined or listed as part of an SOP vocabulary.
 Heuristic: skip lines where the marker is wrapped in backticks AND no
 other content gives it subject-matter (i.e. the line is a vocab entry).
 """
+import argparse
 import os, re, json
 from pathlib import Path
 
-REPO = Path("/tmp/tmp.xjxTifV629/clean-build")
 MARKERS = ["SOURCE REQUIRED", "DECISION REQUIRED", "LOGIC TO BE CONFIRMED"]
 
 # Patterns that indicate a definition / vocab-listing / SOP boilerplate line
@@ -42,16 +42,16 @@ def is_skip_line(line: str) -> bool:
             return True
     return False
 
-def collect():
+def collect(repo: Path, context_lines: int):
     results = {m: [] for m in MARKERS}
-    for root, dirs, files in os.walk(REPO):
+    for root, dirs, files in os.walk(repo):
         # Exclude 90_archive and .git
         dirs[:] = [d for d in dirs if d not in ("90_archive", ".git", "node_modules")]
         for fn in files:
             if not (fn.endswith(".md") or fn.endswith(".mdc")):
                 continue
             path = Path(root) / fn
-            rel = str(path.relative_to(REPO))
+            rel = str(path.relative_to(repo))
             try:
                 lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
             except Exception:
@@ -61,9 +61,9 @@ def collect():
                     if f"[{marker}]" in line:
                         if is_skip_line(line):
                             continue
-                        # Pull 2 lines of context above and below for human judgement
-                        start = max(0, i - 1)
-                        end = min(len(lines), i + 2)
+                        # Pull `context_lines` lines above and below for human judgement
+                        start = max(0, i - context_lines)
+                        end = min(len(lines), i + context_lines + 1)
                         ctx = lines[start:end]
                         results[marker].append({
                             "file": rel,
@@ -74,17 +74,35 @@ def collect():
                         break
     return results
 
+def parse_args():
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    default_repo = os.environ.get("SPINE_BLANKS_REPO", "./clean-build")
+    default_out = os.environ.get("SPINE_BLANKS_OUT", "./sam-substantive-blanks.json")
+    p.add_argument("--repo", default=default_repo,
+                   help=f"Path to repo root to scan (env SPINE_BLANKS_REPO; default: {default_repo})")
+    p.add_argument("--out", default=default_out,
+                   help=f"Path to JSON output file (env SPINE_BLANKS_OUT; default: {default_out})")
+    p.add_argument("--context-lines", type=int, default=2,
+                   help="Number of lines of context above AND below each hit (default: 2 → 5-line window)")
+    return p.parse_args()
+
 if __name__ == "__main__":
-    out = collect()
+    args = parse_args()
+    repo = Path(args.repo).resolve()
+    out_path = Path(args.out).resolve()
+    if not repo.exists():
+        raise SystemExit(f"ERROR: repo path does not exist: {repo}")
+    out = collect(repo, args.context_lines)
     for m in MARKERS:
         print(f"\n========== [{m}] : {len(out[m])} substantive hits ==========")
         for hit in out[m]:
             print(f"\n--- {hit['file']}:{hit['line_no']} ---")
             print(hit["line"])
-    # Also dump JSON
-    with open("/home/user/workspace/sam-substantive-blanks.json", "w") as f:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w") as f:
         json.dump(out, f, indent=2)
     print(f"\n\nTotal: {sum(len(v) for v in out.values())}")
     print(f"  SOURCE REQUIRED: {len(out['SOURCE REQUIRED'])}")
     print(f"  DECISION REQUIRED: {len(out['DECISION REQUIRED'])}")
     print(f"  LOGIC TO BE CONFIRMED: {len(out['LOGIC TO BE CONFIRMED'])}")
+    print(f"\nWrote {out_path}")
