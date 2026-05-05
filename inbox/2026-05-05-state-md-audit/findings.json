@@ -1,0 +1,45 @@
+{
+  "audit": "STATE.md vs current reality",
+  "target_repo": "Amplified-Partners/ground-truth",
+  "target_file": "STATE.md",
+  "target_commit": "220cf72",
+  "target_last_modified_utc": "2026-05-01T19:41:15Z",
+  "audit_date_bst": "2026-05-05T02:50:00+01:00",
+  "audit_date_utc": "2026-05-05T01:50:00Z",
+  "auditor": "Sam (Claude Sonnet, Perplexity Computer)",
+  "method": "Cross-reference STATE.md claims against newer authority docs (VERIFICATION.md 2026-05-03, STATUS.md, EIGHT_LAWS.md), live gh api repo state, and tonight's perplexity-research reorg work.",
+  "summary": {
+    "total": 14,
+    "blocker": 0,
+    "stale": 5,
+    "drift": 5,
+    "potential_drift": 1,
+    "gap": 1,
+    "process_drift": 1,
+    "out_of_scope_flag": 1
+  },
+  "findings": [
+    {"id": 1, "state_md_line": 51, "severity": "DRIFT", "topic": "four_vs_eight_principles", "claim": "The four principles come from Ray Dalio — directly. Radical Honesty. Radical Transparency. We added Radical Attribution and Win-Win / Idea Meritocracy.", "current_reality": "clean-build/00_authority/EIGHT_LAWS.md exists (3002 bytes, sha 43a4043) and is referenced as canonical layer-0 by ground-truth/OPENCLAW.md and corpus-raw/ewan-map. STATE.md's four-principle framing does not acknowledge or reconcile.", "sources": ["Amplified-Partners/clean-build/00_authority/EIGHT_LAWS.md", "Amplified-Partners/ground-truth/OPENCLAW.md", "Amplified-Partners/corpus-raw/ewan-map/2026-04-23_amplified-partners-map_v1.md"]},
+    {"id": 2, "state_md_line": 117, "severity": "STALE", "topic": "falkordb_to_neo4j_migration", "claim": "The decision was made to replace FalkorDB with Neo4j 5.26+, keep Graphiti as the knowledge extraction framework, and keep Qdrant for vectors while a migration plan is worked through.", "current_reality": "VERIFICATION.md (2 days later, SSH-verified) reports FalkorDB as 'Running and populated' with 8,841 nodes across 2 active graphs. Migration not done; FalkorDB still primary.", "sources": ["Amplified-Partners/ground-truth/VERIFICATION.md:45"]},
+    {"id": 3, "state_md_line": 119, "severity": "STALE", "topic": "byker_status", "claim": "Byker is the codename for the production system now running on Railway. It is working.", "current_reality": "byker-production repo last commit 22ff950 dated 2026-02-07 (87 days before STATE.md was written). VERIFICATION.md flags byker-production as 'dormant / to decide' with question 'still relevant?'.", "sources": ["Amplified-Partners/byker-production commit history", "Amplified-Partners/ground-truth/VERIFICATION.md:91"]},
+    {"id": 4, "state_md_line": 182, "severity": "DRIFT", "topic": "falkordb_node_count_and_graph_count", "claim": "FalkorDB ... 9,000 nodes across 4 graphs: business_knowledge ... amplified ... amplified_brain / amplified_graph — scaffolded, empty.", "current_reality": "VERIFICATION.md:45 reports 8,841 nodes across 2 active graphs. Two scaffolded-empty graphs no longer counted. Drift of 159 nodes.", "sources": ["Amplified-Partners/ground-truth/VERIFICATION.md:45"]},
+    {"id": 5, "state_md_line": 189, "severity": "DRIFT", "topic": "container_count_disagreement", "claim": "35+ containers total on Docker network amplified-net.", "current_reality": "Two newer authoritative sources disagree both with STATE.md and with each other. clean-build/STATUS.md v2 (2026-04-30): 40 containers (37 running, 1 paused, 2 stopped). VERIFICATION.md (2026-05-03): 37 Docker containers running. STATE.md '35+' is now misleading lower bound.", "sources": ["Amplified-Partners/clean-build/STATUS.md", "Amplified-Partners/ground-truth/VERIFICATION.md:35"]},
+    {"id": 6, "state_md_line": 23, "severity": "DRIFT", "topic": "vault_backup_risk", "claim": "Vault backup risk — /opt/amplified/vault/ still needs confirmed git remote sync.", "current_reality": "Amplified-Partners/vault repo had 5-week dormancy gap (last commit before tonight: 2026-03-28). Tonight (2026-05-05 02:14-02:19 UTC) it received Dependabot + Copilot config commits. Repo is active. NOT CHECKED whether Beast /opt/amplified/vault/ actually pushes to it. STATE.md flag still un-resolved per any newer doc.", "sources": ["Amplified-Partners/vault commit history c65b874, f5d7cdc, c0fb940"]},
+    {"id": 7, "state_md_line": 196, "severity": "POTENTIAL_DRIFT", "topic": "ssh_key_credential_claim", "claim": "SSH access (Devon M4): ssh -i ~/.ssh/devin_beast_key root@135.181.161.131", "current_reality": "NOT CHECKED. Cannot verify SSH key state from outside the Beast. VERIFICATION.md:5 confirms key worked 2-3 May 2026.", "sources": []},
+    {"id": 8, "state_md_line": 14, "severity": "STALE", "topic": "first_client_status_unchanged", "claim": "CRM live with Dave Jesmond — Close to live. CRM working, persistence solid, API auth in place.", "current_reality": "VERIFICATION.md:203 lists 'First client live — Dave Jesmond / Jesmond Plumbing. CRM is ready. What's between here and live?' as still-open decision. No reported movement across 3 days.", "sources": ["Amplified-Partners/ground-truth/VERIFICATION.md:203"]},
+    {"id": 9, "state_md_line": 5, "severity": "STALE", "topic": "doc_age_78_hours", "claim": "As of: 2026-05-01", "current_reality": "STATE.md last touched 2026-05-01 19:41 UTC. 78 hours elapsed. In that window: VERIFICATION.md created (2026-05-03), 5 Devin sessions ran, 7 dedup PRs merged (181 files / 41,581 lines deleted), perplexity-research repo created (2026-05-04), 9 PRs opened in perplexity-research, 4 reorganisation plans drafted by 4 agents, spine-blanks audit ran (59 gaps found in clean-build).", "sources": ["org commit history since 2026-05-01 19:41 UTC"]},
+    {"id": 10, "state_md_line": "entire_doc", "severity": "GAP", "topic": "missing_perplexity_research_layer", "claim": "(STATE.md does not mention)", "current_reality": "Zero references to: perplexity-research repo, 2026-05-04 reorg, 4-plan parallel build, Antigravity/Mirror/Cassian/Sam agent identities, spine-blanks audit, substrate diversity question, or VERIFICATION.md itself. Current Priorities dashboard at top is most-updated and most-stale section.", "sources": ["grep across STATE.md returns 0 hits"]},
+    {"id": 11, "state_md_line": [162, 164, 165, 166], "severity": "STALE", "topic": "marketing_engine_status_understated", "claim": "Bob ... Running but cold. The Marketing Suite ... Spec exists, partial code.", "current_reality": "VERIFICATION.md:42 (2026-05-03): Marketing Engine 'Running but daily cron broken (quote escaping bug — fixable in 10 minutes)'. Marketing further along than 'spec + partial code' — running on Beast cron, just bug-blocked.", "sources": ["Amplified-Partners/ground-truth/VERIFICATION.md:42"]},
+    {"id": 12, "state_md_line": [115, 181], "severity": "DRIFT", "topic": "ram_spec_kernel_caveat_missing", "claim": "Hetzner AX162-R 135.181.161.131, hostname amplified-core ... 256GB DDR5 RAM", "current_reality": "ground-truth INFRASTRUCTURE.md was corrected on 2026-05-03 (commit 035df63: 'fix: correct RAM spec to 256 GB DDR5 (hardware spec, not usable after kernel)'). STATE.md does not flag the kernel-usable distinction other docs absorbed.", "sources": ["Amplified-Partners/ground-truth commit 035df63"]},
+    {"id": 13, "state_md_line": 220, "severity": "OUT_OF_SCOPE_FLAG", "topic": "unit_gamma_unverified", "claim": "10-agent marketing swarm scaffolded (Unit Gamma in clean-build)", "current_reality": "NOT CHECKED. Unit Gamma not mentioned in VERIFICATION.md.", "sources": []},
+    {"id": 14, "state_md_line": 246, "severity": "PROCESS_DRIFT", "topic": "git_author_signature_vs_doc_signature", "claim": "Edited: Devon | 2026-05-01 | session 873af571838a40d29455d1579d2e7d75 ...", "current_reality": "clean-build/00_authority/SIGNATURES.md mandates session-ID signing on every authority commit. Commit 220cf72 signs in footer text but git author is devin-ai-integration[bot], not a named human. Authority spine signature standard met in body but not via git identity.", "sources": ["Amplified-Partners/clean-build/00_authority/SIGNATURES.md", "commit 220cf72"]}
+  ],
+  "what_i_did_not_audit": [
+    "clean-build/STATUS.md cross-checked against live Beast container state (need SSH; out of lane)",
+    "clean-build/02_build/INFRASTRUCTURE.md 14 infrastructure claims",
+    "ground-truth/AGENTS.md agent-routing model vs actual agents who pushed PRs tonight",
+    "5 namespace-misconfigured ewan-dot/* repos that VERIFICATION.md flagged"
+  ],
+  "highest_leverage_finding": 10,
+  "secondary_leverage_finding": 1
+}
