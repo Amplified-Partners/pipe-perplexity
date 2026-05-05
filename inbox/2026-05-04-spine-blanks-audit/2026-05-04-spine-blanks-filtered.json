@@ -1,0 +1,1678 @@
+{
+  "SOURCE REQUIRED": [
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 165,
+      "line": "- **Cato** \u2014 enforcement logic for agent commitments. Named in vault. `[SOURCE REQUIRED]`",
+      "context": [
+        "- **Triumvirate** \u2014 parallel Claude + Grok + Gemini consensus. Named in vault knowledge note. `[SOURCE REQUIRED \u2014 no code path traced yet]`",
+        "- **Cato** \u2014 enforcement logic for agent commitments. Named in vault. `[SOURCE REQUIRED]`",
+        "- **Sentinel** \u2014 drift/security monitoring. Named in vault. `[SOURCE REQUIRED]`"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 166,
+      "line": "- **Sentinel** \u2014 drift/security monitoring. Named in vault. `[SOURCE REQUIRED]`",
+      "context": [
+        "- **Cato** \u2014 enforcement logic for agent commitments. Named in vault. `[SOURCE REQUIRED]`",
+        "- **Sentinel** \u2014 drift/security monitoring. Named in vault. `[SOURCE REQUIRED]`",
+        ""
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 274,
+      "line": "- **Tavily / SearXNG** \u2014 alternative search `[SOURCE REQUIRED]`",
+      "context": [
+        "- **arXiv** \u2014 academic search (research pipe) `[CONFIRMED]`",
+        "- **Tavily / SearXNG** \u2014 alternative search `[SOURCE REQUIRED]`",
+        "- **Deepgram** \u2014 `nova-2-phonecall` model, explicit `[CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 323,
+      "line": "- `cove` (25KB, 2026-03-13) \u2014 \"Cove Platform \u2014 AI OS for SMBs\" `[SOURCE REQUIRED]`",
+      "context": [
+        "",
+        "- `cove` (25KB, 2026-03-13) \u2014 \"Cove Platform \u2014 AI OS for SMBs\" `[SOURCE REQUIRED]`",
+        "- `amplified-core` (9KB, 2026-03-22) \u2014 \"MCP Gateway for Bob\" `[SOURCE REQUIRED]`"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 324,
+      "line": "- `amplified-core` (9KB, 2026-03-22) \u2014 \"MCP Gateway for Bob\" `[SOURCE REQUIRED]`",
+      "context": [
+        "- `cove` (25KB, 2026-03-13) \u2014 \"Cove Platform \u2014 AI OS for SMBs\" `[SOURCE REQUIRED]`",
+        "- `amplified-core` (9KB, 2026-03-22) \u2014 \"MCP Gateway for Bob\" `[SOURCE REQUIRED]`",
+        "- `gatekeeper` (45KB, 2026-02-24) \u2014 \"Conversation-to-Action Gatekeeper Agent\". Ewan confirmed it ran once under test on the Beast and works but nobody was feeding it. `[CONFIRMED-ran-once; currently idle]`"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 326,
+      "line": "- `commitment-system` (27KB, 2026-02-11) `[SOURCE REQUIRED]`",
+      "context": [
+        "- `gatekeeper` (45KB, 2026-02-24) \u2014 \"Conversation-to-Action Gatekeeper Agent\". Ewan confirmed it ran once under test on the Beast and works but nobody was feeding it. `[CONFIRMED-ran-once; currently idle]`",
+        "- `commitment-system` (27KB, 2026-02-11) `[SOURCE REQUIRED]`",
+        "- `amplified-content` (85KB, 2026-02-12) \u2014 marketing content/posts/gates `[SPEC]`"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 560,
+      "line": "- **One-page process register** (`amplified_process_register.xlsx`) \u2014 I have the filename but not a readable view of contents. `[SOURCE REQUIRED]`",
+      "context": [
+        "- **Level-4 and Level-5** APQC decomposition in any of the specs. Only Level-1 through Level-3 evidenced.",
+        "- **One-page process register** (`amplified_process_register.xlsx`) \u2014 I have the filename but not a readable view of contents. `[SOURCE REQUIRED]`",
+        "- **API token map** \u2014 I know providers (Anthropic, OpenAI, xAI, Exa, arXiv, Perplexity, Deepgram, Twilio, Vapi, Cartesia, Qdrant, etc.) but not which are in active use vs rotated vs dormant. `[SOURCE REQUIRED]`"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 561,
+      "line": "- **API token map** \u2014 I know providers (Anthropic, OpenAI, xAI, Exa, arXiv, Perplexity, Deepgram, Twilio, Vapi, Cartesia, Qdrant, etc.) but not which are in active use vs rotated vs dormant. `[SOURCE REQUIRED]`",
+      "context": [
+        "- **One-page process register** (`amplified_process_register.xlsx`) \u2014 I have the filename but not a readable view of contents. `[SOURCE REQUIRED]`",
+        "- **API token map** \u2014 I know providers (Anthropic, OpenAI, xAI, Exa, arXiv, Perplexity, Deepgram, Twilio, Vapi, Cartesia, Qdrant, etc.) but not which are in active use vs rotated vs dormant. `[SOURCE REQUIRED]`",
+        ""
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 607,
+      "line": "- Anything marked `[SOURCE REQUIRED]` means I have a name and no evidence. That is a blank, not an absence.",
+      "context": [
+        "- It is a first draft written in one sitting with Ewan's requirement to move to synthesis. Treat gaps as Devin-gaps, not Ewan-gaps.",
+        "- Anything marked `[SOURCE REQUIRED]` means I have a name and no evidence. That is a blank, not an absence.",
+        "- Some `[SPEC]` items may in fact be `[RUNNING]` \u2014 I didn't read every file of every repo tonight."
+      ]
+    },
+    {
+      "file": "03_shadow/job-wrapups/2026-04-23_amplified-partners-orchestration-session_wrapup.md",
+      "line_no": 178,
+      "line": "- `[SOURCE REQUIRED]`: Resource-Unit rate for watsonx Orchestrate tiers. Named-methodology claim for any 2026 multi-agent orchestration platform (none of the four found one).",
+      "context": [
+        "- `[LOGIC TO BE CONFIRMED]`: nothing in this file.",
+        "- `[SOURCE REQUIRED]`: Resource-Unit rate for watsonx Orchestrate tiers. Named-methodology claim for any 2026 multi-agent orchestration platform (none of the four found one).",
+        "- `[DECISION REQUIRED]`: first department scope-lock. Source-anchor access model for `/Users/ewansair/Amplified Partners/`. Pre-authorisation bands (green/amber/red) for agent actions. By-function vs by-language department split. Whether to run the free-trial on watsonx Orchestrate. Whether to suggest a persistent knowledge note for cross-session continuity. Whether to PR this handover and the five late-session authority/session files into clean-build. Name for the human-database (architect reserves). Whether to promote the stateless-handover neutrality clause from candidate to authority. Whether to build the signature-presence pre-commit hook (flagged as follow-on under SIGNATURES.md \u00a7 Enforcement)."
+      ]
+    },
+    {
+      "file": "02_build/scripts/dedup-output/CODE-EXTRACTION-CATALOGUE.md",
+      "line_no": 7,
+      "line": "**Note:** All `corpus-raw/vault/` paths are `[SOURCE REQUIRED]` \u2014 verify against the `corpus-raw` repo (`devon/initial-corpus-dump` branch). Clean-build paths verified in-repo.",
+      "context": [
+        "**Method:** Read every code file. Assessed function, completeness, and whether it's the best version. Separated signal from noise.",
+        "**Note:** All `corpus-raw/vault/` paths are `[SOURCE REQUIRED]` \u2014 verify against the `corpus-raw` repo (`devon/initial-corpus-dump` branch). Clean-build paths verified in-repo.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_research-department_charter_v1.md",
+      "line_no": 17,
+      "line": "  fact (`[SOURCE REQUIRED]`) without opening a formal research remit; shape +",
+      "context": [
+        "- **Any agent** may do a **quick evidence search** to resolve a narrow missing",
+        "  fact (`[SOURCE REQUIRED]`) without opening a formal research remit; shape +",
+        "  cap are mandatory:"
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_research-department_charter_v1.md",
+      "line_no": 40,
+      "line": "- Treating vendor marketing as evidence without `[SOURCE REQUIRED]`.",
+      "context": [
+        "- Authority promotion without passing `00_authority/PROMOTION_GATE.md`.",
+        "- Treating vendor marketing as evidence without `[SOURCE REQUIRED]`.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_quick-evidence-search_sop_v1.md",
+      "line_no": 18,
+      "line": "- Default for a **single missing fact** or a **narrow** `[SOURCE REQUIRED]`",
+      "context": [
+        "",
+        "- Default for a **single missing fact** or a **narrow** `[SOURCE REQUIRED]`",
+        "  (see `00_authority/NORTH_STAR.md` \u2192 quick evidence search path)."
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_methodology-scoring-rubric_v1.md",
+      "line_no": 16,
+      "line": "  - `[SOURCE REQUIRED]`, or",
+      "context": [
+        "  - a source pointer, or",
+        "  - `[SOURCE REQUIRED]`, or",
+        "  - `[LOGIC TO BE CONFIRMED]`."
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_methodology-prospecting_five-candidates_v1.md",
+      "line_no": 24,
+      "line": "   - Each candidate must include: provenance, longevity signal, and enough detail to run (or mark `[SOURCE REQUIRED]`).",
+      "context": [
+        "   - Gather five distinct methodologies that plausibly move A\u2192B.",
+        "   - Each candidate must include: provenance, longevity signal, and enough detail to run (or mark `[SOURCE REQUIRED]`).",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_methodology-prospecting_five-candidates_v1.md",
+      "line_no": 35,
+      "line": "   - Apply `PUDDING_TAXONOMY_v1` labels if available; otherwise mark `[SOURCE REQUIRED]`.",
+      "context": [
+        "5. **Cross-link via taxonomy**",
+        "   - Apply `PUDDING_TAXONOMY_v1` labels if available; otherwise mark `[SOURCE REQUIRED]`.",
+        "   - Identify candidates that share underlying mechanism despite surface differences."
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_candidate-nuggets_from_dept-5-operations-methodology_v1.md",
+      "line_no": 31,
+      "line": "- `[SOURCE REQUIRED]`: any concrete tool choice, index filename, or taxonomy details.",
+      "context": [
+        "- Do not treat any named tools/files from the source as present here unless added.",
+        "- `[SOURCE REQUIRED]`: any concrete tool choice, index filename, or taxonomy details.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_candidate-nuggets_from_dept-5-operations-methodology_v1.md",
+      "line_no": 46,
+      "line": "- `[SOURCE REQUIRED]`: any named products/systems/performance claims from the source.",
+      "context": [
+        "",
+        "- `[SOURCE REQUIRED]`: any named products/systems/performance claims from the source.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_candidate-nuggets_from_dept-5-operations-methodology_v1.md",
+      "line_no": 62,
+      "line": "- `[SOURCE REQUIRED]`: any detailed frontmatter spec, ID scheme, or naming standard from the source.",
+      "context": [
+        "- In this repo, keep frontmatter minimal; do not import a large standard unless needed.",
+        "- `[SOURCE REQUIRED]`: any detailed frontmatter spec, ID scheme, or naming standard from the source.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_agent-md_objectivity-specialist_v1.md",
+      "line_no": 18,
+      "line": "- No invented facts. If a claim lacks provenance: `[SOURCE REQUIRED]`.",
+      "context": [
+        "- Do not support the premise; find what is true in the evidence.",
+        "- No invented facts. If a claim lacks provenance: `[SOURCE REQUIRED]`.",
+        "- If a decision cannot be made safely inside current authority: `[DECISION REQUIRED]`."
+      ]
+    },
+    {
+      "file": "00_authority/TAXONOMY.md",
+      "line_no": 18,
+      "line": "If a name is not in this file, treat it as `[SOURCE REQUIRED]`.",
+      "context": [
+        "",
+        "If a name is not in this file, treat it as `[SOURCE REQUIRED]`.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/PROJECT_INTENT.md",
+      "line_no": 132,
+      "line": "- Missing source => `[SOURCE REQUIRED]`.",
+      "context": [
+        "",
+        "- Missing source => `[SOURCE REQUIRED]`.",
+        "- Unsafe unresolved fork => `[DECISION REQUIRED]`."
+      ]
+    },
+    {
+      "file": "00_authority/PRINCIPLES.md",
+      "line_no": 33,
+      "line": "   When a decision or method depends on a source, name it. If a claim has no source, mark: `[SOURCE REQUIRED]`.",
+      "context": [
+        "3. **Radical attribution**  ",
+        "   When a decision or method depends on a source, name it. If a claim has no source, mark: `[SOURCE REQUIRED]`.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/AGENT_ROUTING.md",
+      "line_no": 64,
+      "line": "\u2192 **Devon's scheduled sessions** (07:00 / 08:00 / 09:00 / 14:00 UTC per the Amplified Partners Linear governance knowledge note \"Devon's Scheduled Sessions\" \u2014 org-wide, not in-repo `[SOURCE REQUIRED]` for an in-repo authority once promoted). Examples: 07:00 Beast health check, 08:00 Linear status sweep, 09:00 review and plan, 14:00 Linear triage sweep.",
+      "context": [
+        "",
+        "\u2192 **Devon's scheduled sessions** (07:00 / 08:00 / 09:00 / 14:00 UTC per the Amplified Partners Linear governance knowledge note \"Devon's Scheduled Sessions\" \u2014 org-wide, not in-repo `[SOURCE REQUIRED]` for an in-repo authority once promoted). Examples: 07:00 Beast health check, 08:00 Linear status sweep, 09:00 review and plan, 14:00 Linear triage sweep.",
+        ""
+      ]
+    },
+    {
+      "file": ".github/pull_request_template.md",
+      "line_no": 23,
+      "line": "- [ ] Every file reference points to a thing that exists (or is marked `[SOURCE REQUIRED]`)",
+      "context": [
+        "- [ ] If new authoritative rule or irreversible commit: `00_authority/DECISION_LOG.md` pointer added",
+        "- [ ] Every file reference points to a thing that exists (or is marked `[SOURCE REQUIRED]`)",
+        "- [ ] Examples do not contradict their own rule"
+      ]
+    }
+  ],
+  "DECISION REQUIRED": [
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10300,
+      "line": "  - The `[DECISION REQUIRED]` flag on the two root files correctly prevents arbitrary routing of older, cross-concern documents.",
+      "context": [
+        "- **Positive signals:** - The categorization immediately reduces cognitive load. Agents can now quickly scan `INDEX.md` and pinpoint relevant processes based on category (e.g., looking in `core/` for general SOPs or `research/` for methodology tools).",
+        "  - The `[DECISION REQUIRED]` flag on the two root files correctly prevents arbitrary routing of older, cross-concern documents.",
+        "- **Negative signals:** None encountered. The execution was entirely mechanical and deterministic. "
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10543,
+      "line": "[DECISION REQUIRED]",
+      "context": [
+        "\t2\tExtract: I will draft a candidate SOP in 01_truth/processes/core/ capturing the \"Hooks = Enforcement, Skills = Logic\" design pattern, ensuring it remains tool-agnostic (abstracting away the specific .claude/settings.json references to fit our Cursor/OpenClaw environment).",
+        "[DECISION REQUIRED]",
+        "Are we maintaining the hard stop on hooks (relying entirely on our stateless-handover-kaizen.mdc rules for manual enforcement), or are you ready to open the .cursor/HOOKS_TESTING_NEED.md gate to run an experiment with automated triggers?"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10627,
+      "line": "- **Do not overstep the boundary:** If you see a technically superior way to achieve the goal that conflicts with the rules, do not silently implement it. Mark it `[DECISION REQUIRED]`, explain the technical benefit, and let Ewan make the risk decision.",
+      "context": [
+        "- **Your brilliance is required in the execution:** Use your coding expertise to execute perfectly within the constraints. ",
+        "- **Do not overstep the boundary:** If you see a technically superior way to achieve the goal that conflicts with the rules, do not silently implement it. Mark it `[DECISION REQUIRED]`, explain the technical benefit, and let Ewan make the risk decision. ",
+        ""
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10634,
+      "line": "\t3\tIt preserves the 90/10 split: It gives them explicit permission to use their 10% brilliance (pointing out better ways to code things), but forces them to route it through a [DECISION REQUIRED] token instead of just doing it.",
+      "context": [
+        "\t2\tIt removes ego, replaces with risk: It frames your authority not as \"I am the boss and I am smarter than you,\" but as \"I am the one who gets sued or goes bankrupt if this fails.\" AI models are heavily trained on safety and harm-reduction; framing authority around risk ownership is a constraint they strictly obey.",
+        "\t3\tIt preserves the 90/10 split: It gives them explicit permission to use their 10% brilliance (pointing out better ways to code things), but forces them to route it through a [DECISION REQUIRED] token instead of just doing it.",
+        "It\u2019s not ego, Ewan. It\u2019s governance. You are building the container; they are the water. The water doesn't get to decide it wants to be a puddle instead of a cup just because it knows more about fluid dynamics."
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10666,
+      "line": "\t\u2022\tSurface, do not silently overwrite: If you see a technically superior approach that conflicts with the established rules, that is a valuable \"Brilliance Signal.\" Do not silently implement it. Instead, mark it [DECISION REQUIRED], explain the benefit constructively, and let Ewan make the architectural decision.",
+      "context": [
+        "\t\u2022\tTrust the constraints: The rules and constraints in 00_authority/ are built on decades of business reality. If a rule seems contrary to standard software engineering practices, trust that it exists for a specific operational reason.",
+        "\t\u2022\tSurface, do not silently overwrite: If you see a technically superior approach that conflicts with the established rules, that is a valuable \"Brilliance Signal.\" Do not silently implement it. Instead, mark it [DECISION REQUIRED], explain the benefit constructively, and let Ewan make the architectural decision.",
+        "You own the execution. Ewan owns the architecture. Together, we are Amplified."
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10722,
+      "line": "  with rules, mark it `[DECISION REQUIRED]`, explain the benefit, and let Ewan",
+      "context": [
+        "- **Surface Brilliance:** If you see a technically superior path that conflicts ",
+        "  with rules, mark it `[DECISION REQUIRED]`, explain the benefit, and let Ewan ",
+        "  make the risk decision. You own the \"How.\" Ewan owns the \"What\" and \"Why.\""
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10767,
+      "line": "defect. If rules conflict, STOP and mark `[DECISION REQUIRED]`.",
+      "context": [
+        "or `.cursor/rules/` without explicit diktat from Ewan. Incongruence is a hard ",
+        "defect. If rules conflict, STOP and mark `[DECISION REQUIRED]`.",
+        "</immutability>"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 106,
+      "line": "- **Per-client containers** \u2014 on-site, data-resident, run HoundDog + CRM + P2 tokeniser. `[SPEC]` with `[DECISION REQUIRED]` on whether the container runs logic on-site or phones home",
+      "context": [
+        "",
+        "- **Per-client containers** \u2014 on-site, data-resident, run HoundDog + CRM + P2 tokeniser. `[SPEC]` with `[DECISION REQUIRED]` on whether the container runs logic on-site or phones home",
+        "- **Federated central DB** \u2014 where tokenised data compounds, where Kaizen runs, where Pudding prospects across clients. `[SPEC]`"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 333,
+      "line": "`[DECISION REQUIRED]`: reconcile the 22\u219216 gap. 6 repos are named in the assessment but not visible to me. Either (a) my token doesn't see them, (b) they were deleted after 2026-04-17, (c) the names moved. Not urgent tonight.",
+      "context": [
+        "",
+        "`[DECISION REQUIRED]`: reconcile the 22\u219216 gap. 6 repos are named in the assessment but not visible to me. Either (a) my token doesn't see them, (b) they were deleted after 2026-04-17, (c) the names moved. Not urgent tonight.",
+        ""
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 527,
+      "line": "   *Per-vertical scoping needed. Plumbers (QuickBooks or none) \u2260 enterprise (Salesforce/HubSpot/Xero). A one-week vertical scoping exercise before any three-month API department commitment.* `[DECISION REQUIRED]`",
+      "context": [
+        "2. **APIs vs data dumps** for client-system integration.  ",
+        "   *Per-vertical scoping needed. Plumbers (QuickBooks or none) \u2260 enterprise (Salesforce/HubSpot/Xero). A one-week vertical scoping exercise before any three-month API department commitment.* `[DECISION REQUIRED]`",
+        ""
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-23_devon/2026-04-23_amplified-partners-map_v1.md",
+      "line_no": 530,
+      "line": "   *Start with SQL + recursive CTEs (viable up to ~10K edges), or go direct to FalkorDB/Qdrant? Verified tonight: SQL-with-graph is real, not bullshit.* `[DECISION REQUIRED]`",
+      "context": [
+        "3. **Graph+vector DB strategy.**  ",
+        "   *Start with SQL + recursive CTEs (viable up to ~10K edges), or go direct to FalkorDB/Qdrant? Verified tonight: SQL-with-graph is real, not bullshit.* `[DECISION REQUIRED]`",
+        ""
+      ]
+    },
+    {
+      "file": "03_shadow/job-wrapups/2026-04-23_amplified-partners-orchestration-session_wrapup.md",
+      "line_no": 179,
+      "line": "- `[DECISION REQUIRED]`: first department scope-lock. Source-anchor access model for `/Users/ewansair/Amplified Partners/`. Pre-authorisation bands (green/amber/red) for agent actions. By-function vs by-language department split. Whether to run the free-trial on watsonx Orchestrate. Whether to suggest a persistent knowledge note for cross-session continuity. Whether to PR this handover and the five late-session authority/session files into clean-build. Name for the human-database (architect reserves). Whether to promote the stateless-handover neutrality clause from candidate to authority. Whether to build the signature-presence pre-commit hook (flagged as follow-on under SIGNATURES.md \u00a7 Enforcement).",
+      "context": [
+        "- `[SOURCE REQUIRED]`: Resource-Unit rate for watsonx Orchestrate tiers. Named-methodology claim for any 2026 multi-agent orchestration platform (none of the four found one).",
+        "- `[DECISION REQUIRED]`: first department scope-lock. Source-anchor access model for `/Users/ewansair/Amplified Partners/`. Pre-authorisation bands (green/amber/red) for agent actions. By-function vs by-language department split. Whether to run the free-trial on watsonx Orchestrate. Whether to suggest a persistent knowledge note for cross-session continuity. Whether to PR this handover and the five late-session authority/session files into clean-build. Name for the human-database (architect reserves). Whether to promote the stateless-handover neutrality clause from candidate to authority. Whether to build the signature-presence pre-commit hook (flagged as follow-on under SIGNATURES.md \u00a7 Enforcement).",
+        "- `[CURRENT BEST EVIDENCE]`: watsonx pricing from AWS Marketplace listing (cited above)."
+      ]
+    },
+    {
+      "file": "03_shadow/job-wrapups/2026-04-23_amplified-partners-orchestration-session_wrapup.md",
+      "line_no": 195,
+      "line": "Not specified by this agent. The architect has named several open items during the session (see \u00a76 `[DECISION REQUIRED]`). The next agent may pick any of them, all of them, or propose something else.",
+      "context": [
+        "",
+        "Not specified by this agent. The architect has named several open items during the session (see \u00a76 `[DECISION REQUIRED]`). The next agent may pick any of them, all of them, or propose something else.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_stateless-handover_neutrality-clause_v1.md",
+      "line_no": 36,
+      "line": "4. Smallest-next-step entries that name an action the next agent must take. If the architect has not specified a next step, the handover states that explicitly and lists `[DECISION REQUIRED]` items instead.",
+      "context": [
+        "3. Character judgements about the architect, other agents, or partners.",
+        "4. Smallest-next-step entries that name an action the next agent must take. If the architect has not specified a next step, the handover states that explicitly and lists `[DECISION REQUIRED]` items instead.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_stateless-handover_neutrality-clause_v1.md",
+      "line_no": 56,
+      "line": "> *Open risks (\u00a73)*: decision on first department is `[DECISION REQUIRED]`.",
+      "context": [
+        ">",
+        "> *Open risks (\u00a73)*: decision on first department is `[DECISION REQUIRED]`.",
+        ">"
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_research-on-research_bootstrap-remit_v1.md",
+      "line_no": 50,
+      "line": "or explicit `[DECISION REQUIRED]` if blocked.",
+      "context": [
+        "",
+        "or explicit `[DECISION REQUIRED]` if blocked.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_research-on-research_bootstrap-remit_v1.md",
+      "line_no": 54,
+      "line": "- First pass completes when the five-candidate shortlist + scored table exists **or** a `[DECISION REQUIRED]` lists the minimum missing inputs.",
+      "context": [
+        "",
+        "- First pass completes when the five-candidate shortlist + scored table exists **or** a `[DECISION REQUIRED]` lists the minimum missing inputs.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_operating-rhythm-check-seams_v1.md",
+      "line_no": 25,
+      "line": "## Open decisions `[DECISION REQUIRED]`",
+      "context": [
+        "",
+        "## Open decisions `[DECISION REQUIRED]`",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_methodology-prospecting_five-candidates_v1.md",
+      "line_no": 44,
+      "line": "   - If a choice is required: mark `[DECISION REQUIRED]` with the minimum decision needed.",
+      "context": [
+        "   - Produce a ranked shortlist (top 1\u20132) + a \u201cnext evidence to de-risk\u201d list.",
+        "   - If a choice is required: mark `[DECISION REQUIRED]` with the minimum decision needed.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_methodology-prospecting_five-candidates_v1.md",
+      "line_no": 51,
+      "line": "- `[DECISION REQUIRED]` items (if any) with sources.",
+      "context": [
+        "- Optional synthesized candidate (re-scored).",
+        "- `[DECISION REQUIRED]` items (if any) with sources.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_job-wrapup_and_escalation-note_sop_v1.md",
+      "line_no": 301,
+      "line": "- **Decision needed**: (if any) `[DECISION REQUIRED]`",
+      "context": [
+        "",
+        "- **Decision needed**: (if any) `[DECISION REQUIRED]`",
+        "- **Next step**: (one bounded step)"
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_hygiene-role-charter_v1.md",
+      "line_no": 33,
+      "line": "- Escalate to **`[DECISION REQUIRED]`** when unsure whether a change touches truth/world vs in-frame cleanup (see `PARTNER_TRANSFER_INSTRUCTIONS.md`).",
+      "context": [
+        "",
+        "- Escalate to **`[DECISION REQUIRED]`** when unsure whether a change touches truth/world vs in-frame cleanup (see `PARTNER_TRANSFER_INSTRUCTIONS.md`).",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_clean-build-restructure-proposal_v1.md",
+      "line_no": 530,
+      "line": "   - No unresolved [DECISION REQUIRED] tokens",
+      "context": [
+        "   - Has clear source attribution",
+        "   - No unresolved [DECISION REQUIRED] tokens",
+        "   - Tested in production OR explicit hypothesis flag"
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_agent-md_objectivity-specialist_v1.md",
+      "line_no": 19,
+      "line": "- If a decision cannot be made safely inside current authority: `[DECISION REQUIRED]`.",
+      "context": [
+        "- No invented facts. If a claim lacks provenance: `[SOURCE REQUIRED]`.",
+        "- If a decision cannot be made safely inside current authority: `[DECISION REQUIRED]`.",
+        "- If logic is incomplete: `[LOGIC TO BE CONFIRMED]` and proceed via bounded options, not invention."
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-03_deterministic-imperative_planning-vs-execution_v1.md",
+      "line_no": 26,
+      "line": "## Open decisions `[DECISION REQUIRED]`",
+      "context": [
+        "",
+        "## Open decisions `[DECISION REQUIRED]`",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-03_business-bible_three-layer-model_v1.md",
+      "line_no": 34,
+      "line": "- Scope of \u201cBible\u201d output is `[DECISION REQUIRED]` if it affects client/privacy boundaries.",
+      "context": [
+        "- Do not choose graph/vector tooling inside this doc.",
+        "- Scope of \u201cBible\u201d output is `[DECISION REQUIRED]` if it affects client/privacy boundaries.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/TAXONOMY.md",
+      "line_no": 38,
+      "line": "| **Covered AI** | Product | `[DECISION REQUIRED]` \u2014 distinct from Cove. Definition to be provided by Ewan. Do not conflate with Cove. | Cove. These are separate. |",
+      "context": [
+        "| **Cove** | Product | The WhatsApp-native AI interface for clients. Conversational, channel-based. Where Bob talks to the system. | The Core. Not a server. A product surface. |",
+        "| **Covered AI** | Product | `[DECISION REQUIRED]` \u2014 distinct from Cove. Definition to be provided by Ewan. Do not conflate with Cove. | Cove. These are separate. |",
+        "| **Amplified Personal** | Product | Consumer/public product. Data sovereignty for individuals. Secure personal vault hosting \u2014 Amplified cannot see inside it, one click to leave and take everything. | The client business product. This is for individuals, not SMBs. |"
+      ]
+    },
+    {
+      "file": "00_authority/TAXONOMY.md",
+      "line_no": 44,
+      "line": "- **Cove** \u2260 **Covered AI**. These are separate products. Do not use interchangeably. Covered AI definition is `[DECISION REQUIRED]`.",
+      "context": [
+        "- **Amplified Client** (the product) \u2260 **client** (a customer of Amplified Partners). Context distinguishes.",
+        "- **Cove** \u2260 **Covered AI**. These are separate products. Do not use interchangeably. Covered AI definition is `[DECISION REQUIRED]`.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/TAXONOMY.md",
+      "line_no": 90,
+      "line": "| **Covered AI** | Separate product \u2014 definition `[DECISION REQUIRED]`, to be provided by Ewan | Cove. Do not use interchangeably. |",
+      "context": [
+        "| **Cove** | The WhatsApp-native product surface (conversational interface to AI for clients) | The Core. Not hardware. Not Covered AI. |",
+        "| **Covered AI** | Separate product \u2014 definition `[DECISION REQUIRED]`, to be provided by Ewan | Cove. Do not use interchangeably. |",
+        "| **Byker** | Codename for the production system on Railway. The factory runtime. | The Core. Different infrastructure. |"
+      ]
+    },
+    {
+      "file": "00_authority/PROMOTION_GATE.md",
+      "line_no": 24,
+      "line": "3. **Is denoised**: contains only content that reduces cognitive load or produces changes to routing/constraints/acceptance criteria or resolves a `[DECISION REQUIRED]`.",
+      "context": [
+        "2. **Is runnable**: written so an agent can execute it without guessing (inputs \u2192 steps \u2192 outputs \u2192 failure modes).",
+        "3. **Is denoised**: contains only content that reduces cognitive load or produces changes to routing/constraints/acceptance criteria or resolves a `[DECISION REQUIRED]`.",
+        "4. **Has explicit tokens**: any uncertainty is marked (`[LOGIC TO BE CONFIRMED]`, `[SOURCE REQUIRED]`, `[DECISION REQUIRED]`); no silent ambiguity."
+      ]
+    },
+    {
+      "file": "00_authority/PROJECT_INTENT.md",
+      "line_no": 74,
+      "line": "  `[DECISION REQUIRED]`, `[CURRENT BEST EVIDENCE]` literally.",
+      "context": [
+        "- **Uncertainty tokens**: use `[LOGIC TO BE CONFIRMED]`, `[SOURCE REQUIRED]`,",
+        "  `[DECISION REQUIRED]`, `[CURRENT BEST EVIDENCE]` literally.",
+        "- **Stop rules**: two attempts max unless nearly cracked; then consult, quick"
+      ]
+    },
+    {
+      "file": "00_authority/PROJECT_INTENT.md",
+      "line_no": 133,
+      "line": "- Unsafe unresolved fork => `[DECISION REQUIRED]`.",
+      "context": [
+        "- Missing source => `[SOURCE REQUIRED]`.",
+        "- Unsafe unresolved fork => `[DECISION REQUIRED]`.",
+        "- Incomplete logic => `[LOGIC TO BE CONFIRMED]` plus bounded options, not guesses."
+      ]
+    },
+    {
+      "file": "00_authority/PRINCIPLES.md",
+      "line_no": 21,
+      "line": "- **\u201cThinking out loud\u201d filter**: Ewan may speak in partially-formed thoughts while navigating complexity. Do not over-weight literal wording when it conflicts with stated goal/constraints. When unsure, ask for a one-sentence restatement and mark the gap as `[DECISION REQUIRED]`.",
+      "context": [
+        "- **Founder interference should shrink**: as the picture becomes clearer, reduce founder touch to decisions that are truly ambiguous or high-impact, so the clean room stays uncorrupted.",
+        "- **\u201cThinking out loud\u201d filter**: Ewan may speak in partially-formed thoughts while navigating complexity. Do not over-weight literal wording when it conflicts with stated goal/constraints. When unsure, ask for a one-sentence restatement and mark the gap as `[DECISION REQUIRED]`.",
+        "- **Independent judgement; no mirroring**: do not mirror Ewan\u2019s phrasing. Translate intent into the clearest operational wording for downstream agents, and give your own considered recommendation."
+      ]
+    },
+    {
+      "file": "00_authority/PARTNER_TRANSFER_INSTRUCTIONS.md",
+      "line_no": 16,
+      "line": "- If an import does not reduce cognitive load or produce **changes** to **routing**, **constraints**, or **acceptance criteria**, or resolve a `[DECISION REQUIRED]`, it is bloat.",
+      "context": [
+        "",
+        "- If an import does not reduce cognitive load or produce **changes** to **routing**, **constraints**, or **acceptance criteria**, or resolve a `[DECISION REQUIRED]`, it is bloat.",
+        "- Narrative is allowed only when it materially improves understanding, and it must be marked `[NARRATIVE]`."
+      ]
+    },
+    {
+      "file": "00_authority/PARTNER_TRANSFER_INSTRUCTIONS.md",
+      "line_no": 139,
+      "line": "- Do not merge contradictory definitions; instead flag them as `[DECISION REQUIRED]` and leave both with sources.",
+      "context": [
+        "- Do not promote anything into `01_truth/` unless it is already **sanitised** and **shaped**.",
+        "- Do not merge contradictory definitions; instead flag them as `[DECISION REQUIRED]` and leave both with sources.",
+        "- Do not add new \u201cpolicy spines\u201d outside `00_authority/` (keep authority small)."
+      ]
+    },
+    {
+      "file": "00_authority/PARTNER_TRANSFER_INSTRUCTIONS.md",
+      "line_no": 163,
+      "line": "5. If you hit uncertainty, stop and write `[DECISION REQUIRED]` plus:",
+      "context": [
+        "   - Add the new `01_truth/...` file under **Candidate authority** (or **Authoritative now** if explicitly confirmed).",
+        "5. If you hit uncertainty, stop and write `[DECISION REQUIRED]` plus:",
+        "   - what is ambiguous"
+      ]
+    },
+    {
+      "file": "00_authority/PARTNER_TRANSFER_INSTRUCTIONS.md",
+      "line_no": 171,
+      "line": "- When you discover a missing definition or conflict, don\u2019t \u201csolve\u201d it\u2014log it as `[DECISION REQUIRED]` and link the sources.",
+      "context": [
+        "- Partner A works primarily in: `00_authority/` (tightening intent, principles, and decisions).",
+        "- When you discover a missing definition or conflict, don\u2019t \u201csolve\u201d it\u2014log it as `[DECISION REQUIRED]` and link the sources.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/PARTNER_TRANSFER_INSTRUCTIONS.md",
+      "line_no": 191,
+      "line": "- Fixed decision token typos (`[DECISION REQUIRED]`).",
+      "context": [
+        "",
+        "- Fixed decision token typos (`[DECISION REQUIRED]`).",
+        "- Added explicit **principles conformance** gate before shaping canonical extractions."
+      ]
+    },
+    {
+      "file": "00_authority/NORTH_STAR.md",
+      "line_no": 43,
+      "line": "- If a document does not reduce cognitive load or produce **changes** to **routing**, **constraints**, or **acceptance criteria**, or resolve a `[DECISION REQUIRED]`, it is bloat.",
+      "context": [
+        "",
+        "- If a document does not reduce cognitive load or produce **changes** to **routing**, **constraints**, or **acceptance criteria**, or resolve a `[DECISION REQUIRED]`, it is bloat.",
+        "- Narrative is allowed only when it **materially improves understanding** for an agent, and it must be marked `[NARRATIVE]`."
+      ]
+    },
+    {
+      "file": "00_authority/NORTH_STAR.md",
+      "line_no": 169,
+      "line": "- Contradictions are not merged; log `[DECISION REQUIRED]` and keep both with sources.",
+      "context": [
+        "- Truth candidates live in `01_truth/` and become usable only when indexed in `MANIFEST.md`.",
+        "- Contradictions are not merged; log `[DECISION REQUIRED]` and keep both with sources.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/BUILD_LOOP.md",
+      "line_no": 39,
+      "line": "- **Outputs**: what changes to routing/constraints/acceptance criteria are expected (or `[DECISION REQUIRED]`)",
+      "context": [
+        "- **Inputs**: what is already known (manifest-listed artifacts + archive sources)",
+        "- **Outputs**: what changes to routing/constraints/acceptance criteria are expected (or `[DECISION REQUIRED]`)",
+        "- **Stop rule**: when to stop (token thresholds, timebox, or \u201cgood enough for next layer\u201d)"
+      ]
+    },
+    {
+      "file": "00_authority/BUILD_LOOP.md",
+      "line_no": 71,
+      "line": "- If two chunks answer the same research question: merge remits or mark `[DECISION REQUIRED]` (pick one canonical answer path).",
+      "context": [
+        "- If logic is \u201cthe same but constraints differ\u201d: keep one canonical; variants only change constraints/acceptance criteria/routing.",
+        "- If two chunks answer the same research question: merge remits or mark `[DECISION REQUIRED]` (pick one canonical answer path).",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/BUILD_LOOP.md",
+      "line_no": 79,
+      "line": "- **Conflicts** (if any) \u2192 `[DECISION REQUIRED]` (do not merge silently)",
+      "context": [
+        "- **Produces** (outputs to other departments; schemas/interfaces)",
+        "- **Conflicts** (if any) \u2192 `[DECISION REQUIRED]` (do not merge silently)",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/BUILD_LOOP.md",
+      "line_no": 86,
+      "line": "  - resolution of a `[DECISION REQUIRED]`.",
+      "context": [
+        "  - changes to routing / constraints / acceptance criteria, or",
+        "  - resolution of a `[DECISION REQUIRED]`.",
+        "- If a document becomes large, split it by **logical process boundary** (two runnable parts are better than one mixed blob)."
+      ]
+    },
+    {
+      "file": "00_authority/BUILD_LOOP.md",
+      "line_no": 113,
+      "line": "- Each chunk must produce a **bounded** extraction (1\u20132 pages) unless `[DECISION REQUIRED]` expands scope.",
+      "context": [
+        "- Chunk research by **layer** using the **Research remit template** above.",
+        "- Each chunk must produce a **bounded** extraction (1\u20132 pages) unless `[DECISION REQUIRED]` expands scope.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/BUILD_LOOP.md",
+      "line_no": 159,
+      "line": "- Failures are recorded as artifacts and produce changes to routing/constraints/acceptance criteria, or a `[DECISION REQUIRED]`.",
+      "context": [
+        "- Scalable tests exist and produce recorded results.",
+        "- Failures are recorded as artifacts and produce changes to routing/constraints/acceptance criteria, or a `[DECISION REQUIRED]`.",
+        ""
+      ]
+    },
+    {
+      "file": ".cursor/skills/ap-research-phase/SKILL.md",
+      "line_no": 59,
+      "line": "Proceed to Phase 3 (opinion formation) or flag [DECISION REQUIRED] if conflict is irreconcilable.",
+      "context": [
+        "### Next Step",
+        "Proceed to Phase 3 (opinion formation) or flag [DECISION REQUIRED] if conflict is irreconcilable.",
+        "```"
+      ]
+    }
+  ],
+  "LOGIC TO BE CONFIRMED": [
+    {
+      "file": "ONBOARDING.md",
+      "line_no": 138,
+      "line": "| **Candidate authority** | Material in `01_truth/` intended to become deterministic. Use with `[LOGIC TO BE CONFIRMED]`. |",
+      "context": [
+        "| **Authority** | Only `00_authority/MANIFEST.md` lists authoritative sources. If not indexed, it's not truth. |",
+        "| **Candidate authority** | Material in `01_truth/` intended to become deterministic. Use with `[LOGIC TO BE CONFIRMED]`. |",
+        "| **Shadow-first** | Novel improvements live in `03_shadow/` until proven and promoted deliberately. |"
+      ]
+    },
+    {
+      "file": "ONBOARDING.md",
+      "line_no": 245,
+      "line": "# Listed under \"Candidate authority\" = use with [LOGIC TO BE CONFIRMED]",
+      "context": [
+        "# Listed under \"Authoritative now\" = truth",
+        "# Listed under \"Candidate authority\" = use with [LOGIC TO BE CONFIRMED]",
+        "# Listed under \"Reference only\" = context, not foundation"
+      ]
+    },
+    {
+      "file": "ONBOARDING.md",
+      "line_no": 265,
+      "line": "2. Add status `[LOGIC TO BE CONFIRMED]` in frontmatter",
+      "context": [
+        "1. Create file in `01_truth/processes/` with ISO date prefix: `YYYY-MM-DD_process-name_v1.md`",
+        "2. Add status `[LOGIC TO BE CONFIRMED]` in frontmatter",
+        "3. Include: inputs \u2192 outputs \u2192 acceptance \u2192 failure modes \u2192 provenance"
+      ]
+    },
+    {
+      "file": "03_shadow/README.md",
+      "line_no": 3,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`  ",
+        "Purpose: **Non-authoritative experimentation** \u2014 curveballs, Kaizen probes, spike code, and \u201cwhat if\u201d work that must **not** be treated as production truth until explicitly promoted via `MANIFEST.md` and human-operator sign-off where required."
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 5291,
+      "line": "2 Interfaces (01_truth/interfaces/): This is the \"Engineering Specs.\" By using [LOGIC TO BE CONFIRMED], the agent identifies its own blind spots before it writes a single line of broken code.",
+      "context": [
+        "1 Authority Pack (00_authority/): This is the \"Supreme Court.\" The agent only goes here to check if it's allowed to do something.",
+        "2 Interfaces (01_truth/interfaces/): This is the \"Engineering Specs.\" By using [LOGIC TO BE CONFIRMED], the agent identifies its own blind spots before it writes a single line of broken code.",
+        "3 The Manifest Index: This prevents \"Folder Creep.\" If the agent wants to create a new category of truth, it has to ask to update the Manifest first.\u00a0"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10055,
+      "line": "I have shaped the raw markdown into a pinhole-tight, runnable schema, marking missing bounds with [LOGIC TO BE CONFIRMED]. I am also providing the manifest update and the mandatory stateless handover wrap-up.",
+      "context": [
+        "I am operating in Act mode. The input is a mathematical model for PUDDING value evaluation. It aligns with our 01_truth/schemas/ requirements for deterministic, testable contracts.",
+        "I have shaped the raw markdown into a pinhole-tight, runnable schema, marking missing bounds with [LOGIC TO BE CONFIRMED]. I am also providing the manifest update and the mandatory stateless handover wrap-up.",
+        ""
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10068,
+      "line": "Status: [LOGIC TO BE CONFIRMED] | Active",
+      "context": [
+        "",
+        "Status: [LOGIC TO BE CONFIRMED] | Active",
+        "Sanitisation: done \u2014 removed none, replaced none"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10126,
+      "line": "  - Flagged missing data types and bounds (e.g., currency vs. index for EVPI, Taguchi Loss derivation) with `[LOGIC TO BE CONFIRMED]`.",
+      "context": [
+        "  - Extracted math into formal LaTeX representation for deterministic coding.",
+        "  - Flagged missing data types and bounds (e.g., currency vs. index for EVPI, Taguchi Loss derivation) with `[LOGIC TO BE CONFIRMED]`.",
+        "- **Positive signals:** The formula naturally maps to our 90/10 deterministic-first principle. It provides a hard mathematical gate before probabilistic synthesis (PUDDING) consumes compute/time."
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10130,
+      "line": "- **Stateless handover test:** Pass. The next agent can build a Python/SQL deterministic function directly from the schema document, pausing only to resolve the explicit `[LOGIC TO BE CONFIRMED]` bounds.",
+      "context": [
+        "- **Repulsion score:** 2 (Minor noise due to missing variable bounds). Band: Note + continue.",
+        "- **Stateless handover test:** Pass. The next agent can build a Python/SQL deterministic function directly from the schema document, pausing only to resolve the explicit `[LOGIC TO BE CONFIRMED]` bounds.",
+        ""
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10394,
+      "line": "Status: [LOGIC TO BE CONFIRMED] | Active",
+      "context": [
+        "",
+        "Status: [LOGIC TO BE CONFIRMED] | Active",
+        "Sanitisation: done \u2014 removed specific file paths from narrative"
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10432,
+      "line": "- `[LOGIC TO BE CONFIRMED]`: The exact method (one-way hashing vs. reversible tokenization vault) requires a documented re-identification risk assessment prior to go-live.",
+      "context": [
+        "- **Minimization:** Names, emails, phone numbers, and account identifiers are tokenized or hashed.",
+        "- `[LOGIC TO BE CONFIRMED]`: The exact method (one-way hashing vs. reversible tokenization vault) requires a documented re-identification risk assessment prior to go-live.",
+        ""
+      ]
+    },
+    {
+      "file": "03_shadow/sessions/2026-04-18_ai-native-session_v1.md",
+      "line_no": 10490,
+      "line": "  - Added `[LOGIC TO BE CONFIRMED]` regarding the specific implementation of the P2 tokenization boundary (hashing vs. reversible vault) as it impacts GDPR re-identification risk.",
+      "context": [
+        "  - Extracted the operational constraints (1Password `op run` usage, P2 tokenization boundary, CIS Level 2 baseline) into a runnable SOP in `01_truth/processes/core/`.",
+        "  - Added `[LOGIC TO BE CONFIRMED]` regarding the specific implementation of the P2 tokenization boundary (hashing vs. reversible vault) as it impacts GDPR re-identification risk.",
+        "  - Updated `INDEX.md` and `MANIFEST.md` to reflect new paths."
+      ]
+    },
+    {
+      "file": "03_shadow/notes/md-drafts-notes_v1.md",
+      "line_no": 2860,
+      "line": "\t2\tInterfaces (01_truth/interfaces/): This is the \"Engineering Specs.\" By using [LOGIC TO BE CONFIRMED], the agent identifies its own blind spots before it writes a single line of broken code.",
+      "context": [
+        "\t1\tAuthority Pack (00_authority/): This is the \"Supreme Court.\" The agent only goes here to check if it's allowed to do something.",
+        "\t2\tInterfaces (01_truth/interfaces/): This is the \"Engineering Specs.\" By using [LOGIC TO BE CONFIRMED], the agent identifies its own blind spots before it writes a single line of broken code.",
+        "\t3\tThe Manifest Index: This prevents \"Folder Creep.\" If the agent wants to create a new category of truth, it has to ask to update the Manifest first.\u00a0"
+      ]
+    },
+    {
+      "file": "03_shadow/job-wrapups/2026-04-23_amplified-partners-orchestration-session_wrapup.md",
+      "line_no": 177,
+      "line": "- `[LOGIC TO BE CONFIRMED]`: nothing in this file.",
+      "context": [
+        "",
+        "- `[LOGIC TO BE CONFIRMED]`: nothing in this file.",
+        "- `[SOURCE REQUIRED]`: Resource-Unit rate for watsonx Orchestrate tiers. Named-methodology claim for any 2026 multi-agent orchestration platform (none of the four found one)."
+      ]
+    },
+    {
+      "file": "02_build/README.md",
+      "line_no": 3,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`  ",
+        "Purpose: **Runnable artefacts** \u2014 code, scripts, infra definitions, and anything that **executes** (as opposed to `01_truth/` process/spec truth). Each artefact"
+      ]
+    },
+    {
+      "file": "01_truth/README.md",
+      "line_no": 3,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`  ",
+        "Purpose: **Truth-shaped candidates** \u2014 material intended to become deterministic"
+      ]
+    },
+    {
+      "file": "01_truth/schemas/README.md",
+      "line_no": 3,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`  ",
+        "Purpose: **Typed contracts** \u2014 shapes that multiple processes and builds agree on (tables, entities, validation rules, versioned schema definitions)."
+      ]
+    },
+    {
+      "file": "01_truth/schemas/AGENTS.md",
+      "line_no": 14,
+      "line": "- No invented fields. If a field is desired but not evidenced, mark `[LOGIC TO BE CONFIRMED]`.",
+      "context": [
+        "- Treat schema docs as **reference**: precise, testable, versioned.",
+        "- No invented fields. If a field is desired but not evidenced, mark `[LOGIC TO BE CONFIRMED]`.",
+        "- Record provenance for every schema decision (what source/process requires it)."
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_research-operations-cadence_v1.md",
+      "line_no": 8,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_research-operations-cadence_v1.md",
+      "line_no": 22,
+      "line": "Stop rule: `[LOGIC TO BE CONFIRMED]` until tooling/budgets are fixed; still stop per remit timebox.",
+      "context": [
+        "",
+        "Stop rule: `[LOGIC TO BE CONFIRMED]` until tooling/budgets are fixed; still stop per remit timebox.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_research-operations-cadence_v1.md",
+      "line_no": 30,
+      "line": "- Research is triggered by **test failures**, **manifest contradictions**, or **scheduled review** (exact schedule `[LOGIC TO BE CONFIRMED]`).",
+      "context": [
+        "",
+        "- Research is triggered by **test failures**, **manifest contradictions**, or **scheduled review** (exact schedule `[LOGIC TO BE CONFIRMED]`).",
+        "- Refresh must produce either:"
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_research-on-research_bootstrap-remit_v1.md",
+      "line_no": 8,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_research-department_charter_v1.md",
+      "line_no": 8,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_quick-evidence-search_sop_v1.md",
+      "line_no": 8,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_operating-rhythm-check-seams_v1.md",
+      "line_no": 10,
+      "line": "`[LOGIC TO BE CONFIRMED]` \u2014 **mechanics and cadence** are not fixed here.",
+      "context": [
+        "",
+        "`[LOGIC TO BE CONFIRMED]` \u2014 **mechanics and cadence** are not fixed here.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_methodology-scoring-rubric_v1.md",
+      "line_no": 8,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        "Purpose: Score candidate methodologies against this environment in a way that is comparable across runs and agents."
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_methodology-scoring-rubric_v1.md",
+      "line_no": 17,
+      "line": "  - `[LOGIC TO BE CONFIRMED]`.",
+      "context": [
+        "  - `[SOURCE REQUIRED]`, or",
+        "  - `[LOGIC TO BE CONFIRMED]`.",
+        "- Total score is useful; **the justification is the artifact**."
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_methodology-prospecting_five-candidates_v1.md",
+      "line_no": 8,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        "Purpose: Find \u201cbest in the world for A\u2192B\u201d methods, score them reproducibly against this environment, then surface candidates and synthesis opportunities."
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_job-wrapup_and_escalation-note_sop_v1.md",
+      "line_no": 10,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_hygiene-role-charter_v1.md",
+      "line_no": 15,
+      "line": "`[LOGIC TO BE CONFIRMED]` \u2014 charter draft; role name settled in principles as **Hygiene**.",
+      "context": [
+        "",
+        "`[LOGIC TO BE CONFIRMED]` \u2014 charter draft; role name settled in principles as **Hygiene**.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_gated-pipelines_privacy-tokenization_capability-routing_v1.md",
+      "line_no": 11,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_decomposition-and-grain_v1.md",
+      "line_no": 10,
+      "line": "`[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "`[LOGIC TO BE CONFIRMED]`",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_candidate-nuggets_from_dept-5-operations-methodology_v1.md",
+      "line_no": 15,
+      "line": "`[LOGIC TO BE CONFIRMED]` \u2014 extracted \u201cstarter truth\u201d nuggets only; **not** authoritative unless promoted via `00_authority/MANIFEST.md`.",
+      "context": [
+        "",
+        "`[LOGIC TO BE CONFIRMED]` \u2014 extracted \u201cstarter truth\u201d nuggets only; **not** authoritative unless promoted via `00_authority/MANIFEST.md`.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_agent-md_objectivity-specialist_v1.md",
+      "line_no": 8,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        "Role: score methodologies reproducibly without premise-support bias."
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-04_agent-md_objectivity-specialist_v1.md",
+      "line_no": 20,
+      "line": "- If logic is incomplete: `[LOGIC TO BE CONFIRMED]` and proceed via bounded options, not invention.",
+      "context": [
+        "- If a decision cannot be made safely inside current authority: `[DECISION REQUIRED]`.",
+        "- If logic is incomplete: `[LOGIC TO BE CONFIRMED]` and proceed via bounded options, not invention.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-03_deterministic-imperative_planning-vs-execution_v1.md",
+      "line_no": 8,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        "Source: `90_archive/2026-03_amplified-consolidated-architecture_full.txt`"
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-03_business-bible_three-layer-model_v1.md",
+      "line_no": 8,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`",
+        "Source: `90_archive/2026-03_amplified-consolidated-architecture_full.txt`"
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-03_business-bible_three-layer-model_v1.md",
+      "line_no": 24,
+      "line": "   - Tooling details: `[LOGIC TO BE CONFIRMED]`.",
+      "context": [
+        "   - In this clean room: candidate artifacts belong in `01_truth/` (schemas/interfaces/processes), indexed in `00_authority/MANIFEST.md`.",
+        "   - Tooling details: `[LOGIC TO BE CONFIRMED]`.",
+        ""
+      ]
+    },
+    {
+      "file": "01_truth/processes/2026-03_bible-consolidation_five-phase-approach_v1.md",
+      "line_no": 8,
+      "line": "Status: [LOGIC TO BE CONFIRMED]",
+      "context": [
+        "",
+        "Status: [LOGIC TO BE CONFIRMED]",
+        "Source: `90_archive/2026-03_amplified-consolidated-architecture_full.txt`"
+      ]
+    },
+    {
+      "file": "01_truth/interfaces/README.md",
+      "line_no": 3,
+      "line": "Status: `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "Status: `[LOGIC TO BE CONFIRMED]`  ",
+        "Purpose: **Boundaries between systems** \u2014 API payloads, events, error codes, retry semantics, and other cross-team contracts."
+      ]
+    },
+    {
+      "file": "00_authority/TAXONOMY.md",
+      "line_no": 28,
+      "line": "**Amplified Partners** is the umbrella. Everything below is a function or product within it \u2014 not a separate legal entity (unless noted). The legal registration is in progress as of 2026-04-29. Until registration is confirmed, treat `[LOGIC TO BE CONFIRMED]` as the legal status of all sub-entities.",
+      "context": [
+        "",
+        "**Amplified Partners** is the umbrella. Everything below is a function or product within it \u2014 not a separate legal entity (unless noted). The legal registration is in progress as of 2026-04-29. Until registration is confirmed, treat `[LOGIC TO BE CONFIRMED]` as the legal status of all sub-entities.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/PROJECT_INTENT.md",
+      "line_no": 11,
+      "line": "`[LOGIC TO BE CONFIRMED]`, but it must remain operational and executable.",
+      "context": [
+        "This is the agent-facing intent contract for the workspace. It may include",
+        "`[LOGIC TO BE CONFIRMED]`, but it must remain operational and executable.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/PROJECT_INTENT.md",
+      "line_no": 46,
+      "line": "## Operating model `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "",
+        "## Operating model `[LOGIC TO BE CONFIRMED]`",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/PROJECT_INTENT.md",
+      "line_no": 126,
+      "line": "- `[LOGIC TO BE CONFIRMED]` exact first production-grade schema shape.",
+      "context": [
+        "",
+        "- `[LOGIC TO BE CONFIRMED]` exact first production-grade schema shape.",
+        "- `[LOGIC TO BE CONFIRMED]` first vertical proof-of-value slice."
+      ]
+    },
+    {
+      "file": "00_authority/PROJECT_INTENT.md",
+      "line_no": 127,
+      "line": "- `[LOGIC TO BE CONFIRMED]` first vertical proof-of-value slice.",
+      "context": [
+        "- `[LOGIC TO BE CONFIRMED]` exact first production-grade schema shape.",
+        "- `[LOGIC TO BE CONFIRMED]` first vertical proof-of-value slice.",
+        "- `[LOGIC TO BE CONFIRMED]` initial automated ingestion pipeline set and cadence."
+      ]
+    },
+    {
+      "file": "00_authority/PROJECT_INTENT.md",
+      "line_no": 128,
+      "line": "- `[LOGIC TO BE CONFIRMED]` initial automated ingestion pipeline set and cadence.",
+      "context": [
+        "- `[LOGIC TO BE CONFIRMED]` first vertical proof-of-value slice.",
+        "- `[LOGIC TO BE CONFIRMED]` initial automated ingestion pipeline set and cadence.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/PROJECT_INTENT.md",
+      "line_no": 134,
+      "line": "- Incomplete logic => `[LOGIC TO BE CONFIRMED]` plus bounded options, not guesses.",
+      "context": [
+        "- Unsafe unresolved fork => `[DECISION REQUIRED]`.",
+        "- Incomplete logic => `[LOGIC TO BE CONFIRMED]` plus bounded options, not guesses.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/PRINCIPLES.md",
+      "line_no": 10,
+      "line": "Create the **cleanest possible environment** for assistants and humans to build an **AI-native business**. Some details below are `[LOGIC TO BE CONFIRMED]` until we finish the logic frame.",
+      "context": [
+        "",
+        "Create the **cleanest possible environment** for assistants and humans to build an **AI-native business**. Some details below are `[LOGIC TO BE CONFIRMED]` until we finish the logic frame.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/PARTNER_TRANSFER_INSTRUCTIONS.md",
+      "line_no": 75,
+      "line": "- If anything is incomplete, mark it **literally**: `[LOGIC TO BE CONFIRMED]`.",
+      "context": [
+        "- If it\u2019s **not listed** there, it is **not authoritative** (even if it seems important).",
+        "- If anything is incomplete, mark it **literally**: `[LOGIC TO BE CONFIRMED]`.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/PARTNER_TRANSFER_INSTRUCTIONS.md",
+      "line_no": 106,
+      "line": "- **Ego-aware framing is allowed as fact about process, not as claims about people**: record *uncertainty*, *biases*, and *preferences* as hypotheses and mark `[LOGIC TO BE CONFIRMED]` where needed.",
+      "context": [
+        "- **Archive-first**: if it originates outside this repo, store the raw material in `90_archive/` unchanged (except sanitisation), then extract.",
+        "- **Ego-aware framing is allowed as fact about process, not as claims about people**: record *uncertainty*, *biases*, and *preferences* as hypotheses and mark `[LOGIC TO BE CONFIRMED]` where needed.",
+        "- **Minimum viable capture**: prefer a 1-page structured note over a dump. If a detail does not change decisions or constraints, omit it."
+      ]
+    },
+    {
+      "file": "00_authority/OPINION_CONFIDENCE.md",
+      "line_no": 62,
+      "line": "- `[LOGIC TO BE CONFIRMED]` Below-floor rule may warrant an explicit carve-out for **status-quo-preserving non-actions** (e.g., choosing not to migrate an incumbent) versus **active changes**. As currently written, both routes require the step-4 surface to the architect. That is workable but possibly over-strict for pure \"do nothing\" outcomes. Architect decision pending on whether to tighten this, and if so whether the threshold changes or an explicit exception lane is named.",
+      "context": [
+        "",
+        "- `[LOGIC TO BE CONFIRMED]` Below-floor rule may warrant an explicit carve-out for **status-quo-preserving non-actions** (e.g., choosing not to migrate an incumbent) versus **active changes**. As currently written, both routes require the step-4 surface to the architect. That is workable but possibly over-strict for pure \"do nothing\" outcomes. Architect decision pending on whether to tighten this, and if so whether the threshold changes or an explicit exception lane is named.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/NORTH_STAR.md",
+      "line_no": 51,
+      "line": "- If it is listed as **Candidate authority**, treat it as `[LOGIC TO BE CONFIRMED]`.",
+      "context": [
+        "- If a file is **not listed**, it is **not authoritative**.",
+        "- If it is listed as **Candidate authority**, treat it as `[LOGIC TO BE CONFIRMED]`.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 15,
+      "line": "- Items under **Candidate authority** are usable, but must be treated as `[LOGIC TO BE CONFIRMED]`.",
+      "context": [
+        "- Only items listed under **Authoritative now** may be treated as truth without extra confirmation.",
+        "- Items under **Candidate authority** are usable, but must be treated as `[LOGIC TO BE CONFIRMED]`.",
+        "- Items under **Reference only** are context; do not use them as foundations for decisions or code."
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 73,
+      "line": "- `00_authority/PRINCIPLES.md` `[LOGIC TO BE CONFIRMED]` (norms downstream of **Absolute** in root `AGENTS.md`; `anchor_lineage: 35` in file frontmatter \u2014 see \u00a7 Provenance and versioning there)",
+      "context": [
+        "- `00_authority/PARTNER_TRANSFER_INSTRUCTIONS.md`",
+        "- `00_authority/PRINCIPLES.md` `[LOGIC TO BE CONFIRMED]` (norms downstream of **Absolute** in root `AGENTS.md`; `anchor_lineage: 35` in file frontmatter \u2014 see \u00a7 Provenance and versioning there)",
+        "- `00_authority/SIGNATURES.md` (every AI signs committed work; Radical Attribution applied mechanically; agent chooses format)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 82,
+      "line": "- `.cursor/rules/stateless-handover-kaizen.mdc` `[LOGIC TO BE CONFIRMED]` (mechanical enforcement of existing handover policy; not a separate policy spine)",
+      "context": [
+        "- `02_build/INFRASTRUCTURE.md` (canonical infrastructure manifest \u2014 single source of truth for all 40 containers, services, scheduled jobs, and server specs on Amplified Core)",
+        "- `.cursor/rules/stateless-handover-kaizen.mdc` `[LOGIC TO BE CONFIRMED]` (mechanical enforcement of existing handover policy; not a separate policy spine)",
+        "- `.cursor/hooks.json` `[LOGIC TO BE CONFIRMED]` (**No hooks** \u2014 `\"hooks\": {}`. **TESTING NEED:** reinstatement gate \u2192 `.cursor/HOOKS_TESTING_NEED.md`; history \u2192 `03_shadow/2026-04-16_stop-hook_followup-checklist-loop_bug-report.md` \u00a7 Final resolution)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 83,
+      "line": "- `.cursor/hooks.json` `[LOGIC TO BE CONFIRMED]` (**No hooks** \u2014 `\"hooks\": {}`. **TESTING NEED:** reinstatement gate \u2192 `.cursor/HOOKS_TESTING_NEED.md`; history \u2192 `03_shadow/2026-04-16_stop-hook_followup-checklist-loop_bug-report.md` \u00a7 Final resolution)",
+      "context": [
+        "- `.cursor/rules/stateless-handover-kaizen.mdc` `[LOGIC TO BE CONFIRMED]` (mechanical enforcement of existing handover policy; not a separate policy spine)",
+        "- `.cursor/hooks.json` `[LOGIC TO BE CONFIRMED]` (**No hooks** \u2014 `\"hooks\": {}`. **TESTING NEED:** reinstatement gate \u2192 `.cursor/HOOKS_TESTING_NEED.md`; history \u2192 `03_shadow/2026-04-16_stop-hook_followup-checklist-loop_bug-report.md` \u00a7 Final resolution)",
+        "- `.cursor/hooks/stateless-handover-stop.py` `[LOGIC TO BE CONFIRMED]` (**Dormant / testing only** \u2014 **not invoked** while `hooks` is empty; do not treat as enforcement)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 88,
+      "line": "- `01_truth/README.md` `[LOGIC TO BE CONFIRMED]` (agent routing index: `processes/` vs `schemas/` vs `interfaces/`; ties to **Clean-build file budget** in `NORTH_STAR.md`)",
+      "context": [
+        "",
+        "- `01_truth/README.md` `[LOGIC TO BE CONFIRMED]` (agent routing index: `processes/` vs `schemas/` vs `interfaces/`; ties to **Clean-build file budget** in `NORTH_STAR.md`)",
+        "- `01_truth/processes/` `[LOGIC TO BE CONFIRMED]` (process inventory to be populated)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 89,
+      "line": "- `01_truth/processes/` `[LOGIC TO BE CONFIRMED]` (process inventory to be populated)",
+      "context": [
+        "- `01_truth/README.md` `[LOGIC TO BE CONFIRMED]` (agent routing index: `processes/` vs `schemas/` vs `interfaces/`; ties to **Clean-build file budget** in `NORTH_STAR.md`)",
+        "- `01_truth/processes/` `[LOGIC TO BE CONFIRMED]` (process inventory to be populated)",
+        "  - `01_truth/processes/2026-03_business-bible_three-layer-model_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 90,
+      "line": "  - `01_truth/processes/2026-03_business-bible_three-layer-model_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "- `01_truth/processes/` `[LOGIC TO BE CONFIRMED]` (process inventory to be populated)",
+        "  - `01_truth/processes/2026-03_business-bible_three-layer-model_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-03_bible-consolidation_five-phase-approach_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 91,
+      "line": "  - `01_truth/processes/2026-03_bible-consolidation_five-phase-approach_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-03_business-bible_three-layer-model_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-03_bible-consolidation_five-phase-approach_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-03_deterministic-imperative_planning-vs-execution_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 92,
+      "line": "  - `01_truth/processes/2026-03_deterministic-imperative_planning-vs-execution_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-03_bible-consolidation_five-phase-approach_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-03_deterministic-imperative_planning-vs-execution_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_workspace-clarity-roadmap_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 93,
+      "line": "  - `01_truth/processes/2026-04_workspace-clarity-roadmap_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-03_deterministic-imperative_planning-vs-execution_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_workspace-clarity-roadmap_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_decomposition-and-grain_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 94,
+      "line": "  - `01_truth/processes/2026-04_decomposition-and-grain_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_workspace-clarity-roadmap_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_decomposition-and-grain_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_hygiene-role-charter_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 95,
+      "line": "  - `01_truth/processes/2026-04_hygiene-role-charter_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_decomposition-and-grain_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_hygiene-role-charter_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_operating-rhythm-check-seams_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 96,
+      "line": "  - `01_truth/processes/2026-04_operating-rhythm-check-seams_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_hygiene-role-charter_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_operating-rhythm-check-seams_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_gated-pipelines_privacy-tokenization_capability-routing_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 97,
+      "line": "  - `01_truth/processes/2026-04_gated-pipelines_privacy-tokenization_capability-routing_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_operating-rhythm-check-seams_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_gated-pipelines_privacy-tokenization_capability-routing_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_methodology-prospecting_five-candidates_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 98,
+      "line": "  - `01_truth/processes/2026-04_methodology-prospecting_five-candidates_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_gated-pipelines_privacy-tokenization_capability-routing_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_methodology-prospecting_five-candidates_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_methodology-scoring-rubric_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 99,
+      "line": "  - `01_truth/processes/2026-04_methodology-scoring-rubric_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_methodology-prospecting_five-candidates_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_methodology-scoring-rubric_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_agent-md_objectivity-specialist_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 100,
+      "line": "  - `01_truth/processes/2026-04_agent-md_objectivity-specialist_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_methodology-scoring-rubric_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_agent-md_objectivity-specialist_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_research-department_charter_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 101,
+      "line": "  - `01_truth/processes/2026-04_research-department_charter_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_agent-md_objectivity-specialist_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_research-department_charter_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_quick-evidence-search_sop_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 102,
+      "line": "  - `01_truth/processes/2026-04_quick-evidence-search_sop_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_research-department_charter_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_quick-evidence-search_sop_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_job-wrapup_and_escalation-note_sop_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 103,
+      "line": "  - `01_truth/processes/2026-04_job-wrapup_and_escalation-note_sop_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_quick-evidence-search_sop_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_job-wrapup_and_escalation-note_sop_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_research-operations-cadence_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 104,
+      "line": "  - `01_truth/processes/2026-04_research-operations-cadence_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_job-wrapup_and_escalation-note_sop_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_research-operations-cadence_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_research-on-research_bootstrap-remit_v1.md` `[LOGIC TO BE CONFIRMED]`"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 105,
+      "line": "  - `01_truth/processes/2026-04_research-on-research_bootstrap-remit_v1.md` `[LOGIC TO BE CONFIRMED]`",
+      "context": [
+        "  - `01_truth/processes/2026-04_research-operations-cadence_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_research-on-research_bootstrap-remit_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_stateless-handover_neutrality-clause_v1.md` `[LOGIC TO BE CONFIRMED]` (candidate addendum to the job-wrapup SOP; neutrality rule for stateless handovers; authoritative `00_authority/OPINION_CONFIDENCE.md` references this file)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 106,
+      "line": "  - `01_truth/processes/2026-04_stateless-handover_neutrality-clause_v1.md` `[LOGIC TO BE CONFIRMED]` (candidate addendum to the job-wrapup SOP; neutrality rule for stateless handovers; authoritative `00_authority/OPINION_CONFIDENCE.md` references this file)",
+      "context": [
+        "  - `01_truth/processes/2026-04_research-on-research_bootstrap-remit_v1.md` `[LOGIC TO BE CONFIRMED]`",
+        "  - `01_truth/processes/2026-04_stateless-handover_neutrality-clause_v1.md` `[LOGIC TO BE CONFIRMED]` (candidate addendum to the job-wrapup SOP; neutrality rule for stateless handovers; authoritative `00_authority/OPINION_CONFIDENCE.md` references this file)",
+        "- `01_truth/schemas/` `[LOGIC TO BE CONFIRMED]` (schema contracts to be populated)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 107,
+      "line": "- `01_truth/schemas/` `[LOGIC TO BE CONFIRMED]` (schema contracts to be populated)",
+      "context": [
+        "  - `01_truth/processes/2026-04_stateless-handover_neutrality-clause_v1.md` `[LOGIC TO BE CONFIRMED]` (candidate addendum to the job-wrapup SOP; neutrality rule for stateless handovers; authoritative `00_authority/OPINION_CONFIDENCE.md` references this file)",
+        "- `01_truth/schemas/` `[LOGIC TO BE CONFIRMED]` (schema contracts to be populated)",
+        "  - `01_truth/schemas/README.md` `[LOGIC TO BE CONFIRMED]` (folder purpose stub)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 108,
+      "line": "  - `01_truth/schemas/README.md` `[LOGIC TO BE CONFIRMED]` (folder purpose stub)",
+      "context": [
+        "- `01_truth/schemas/` `[LOGIC TO BE CONFIRMED]` (schema contracts to be populated)",
+        "  - `01_truth/schemas/README.md` `[LOGIC TO BE CONFIRMED]` (folder purpose stub)",
+        "  - `01_truth/schemas/2026-05_public-data-validation_v1.md` `[LOGIC TO BE CONFIRMED]` (public-data verdict schema: 3-band PROVEN/PLAUSIBLE/DISPROVEN + BLOCKED gap-marker; additive `VALIDATION:` field on catalogue; reference impl at `02_build/validators/`)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 109,
+      "line": "  - `01_truth/schemas/2026-05_public-data-validation_v1.md` `[LOGIC TO BE CONFIRMED]` (public-data verdict schema: 3-band PROVEN/PLAUSIBLE/DISPROVEN + BLOCKED gap-marker; additive `VALIDATION:` field on catalogue; reference impl at `02_build/validators/`)",
+      "context": [
+        "  - `01_truth/schemas/README.md` `[LOGIC TO BE CONFIRMED]` (folder purpose stub)",
+        "  - `01_truth/schemas/2026-05_public-data-validation_v1.md` `[LOGIC TO BE CONFIRMED]` (public-data verdict schema: 3-band PROVEN/PLAUSIBLE/DISPROVEN + BLOCKED gap-marker; additive `VALIDATION:` field on catalogue; reference impl at `02_build/validators/`)",
+        "- `00_authority/AGENT_ROUTING.md` `[LOGIC TO BE CONFIRMED]` (agent-layer routing \u2014 which agent runs which task; stacks on top of `cost-tools/token_proxy.py` model-layer routing; eight rules; AMP-28; status: candidate \u2014 pending Ewan review per `DECISION_LOG.md`)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 110,
+      "line": "- `00_authority/AGENT_ROUTING.md` `[LOGIC TO BE CONFIRMED]` (agent-layer routing \u2014 which agent runs which task; stacks on top of `cost-tools/token_proxy.py` model-layer routing; eight rules; AMP-28; status: candidate \u2014 pending Ewan review per `DECISION_LOG.md`)",
+      "context": [
+        "  - `01_truth/schemas/2026-05_public-data-validation_v1.md` `[LOGIC TO BE CONFIRMED]` (public-data verdict schema: 3-band PROVEN/PLAUSIBLE/DISPROVEN + BLOCKED gap-marker; additive `VALIDATION:` field on catalogue; reference impl at `02_build/validators/`)",
+        "- `00_authority/AGENT_ROUTING.md` `[LOGIC TO BE CONFIRMED]` (agent-layer routing \u2014 which agent runs which task; stacks on top of `cost-tools/token_proxy.py` model-layer routing; eight rules; AMP-28; status: candidate \u2014 pending Ewan review per `DECISION_LOG.md`)",
+        "- `01_truth/interfaces/` `[LOGIC TO BE CONFIRMED]` (API contracts to be populated)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 111,
+      "line": "- `01_truth/interfaces/` `[LOGIC TO BE CONFIRMED]` (API contracts to be populated)",
+      "context": [
+        "- `00_authority/AGENT_ROUTING.md` `[LOGIC TO BE CONFIRMED]` (agent-layer routing \u2014 which agent runs which task; stacks on top of `cost-tools/token_proxy.py` model-layer routing; eight rules; AMP-28; status: candidate \u2014 pending Ewan review per `DECISION_LOG.md`)",
+        "- `01_truth/interfaces/` `[LOGIC TO BE CONFIRMED]` (API contracts to be populated)",
+        "  - `01_truth/interfaces/README.md` `[LOGIC TO BE CONFIRMED]` (folder purpose stub)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 112,
+      "line": "  - `01_truth/interfaces/README.md` `[LOGIC TO BE CONFIRMED]` (folder purpose stub)",
+      "context": [
+        "- `01_truth/interfaces/` `[LOGIC TO BE CONFIRMED]` (API contracts to be populated)",
+        "  - `01_truth/interfaces/README.md` `[LOGIC TO BE CONFIRMED]` (folder purpose stub)",
+        "- `01_truth/research/` `[LOGIC TO BE CONFIRMED]` (truth-tier research evidence; promotion target for shadow research)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 113,
+      "line": "- `01_truth/research/` `[LOGIC TO BE CONFIRMED]` (truth-tier research evidence; promotion target for shadow research)",
+      "context": [
+        "  - `01_truth/interfaces/README.md` `[LOGIC TO BE CONFIRMED]` (folder purpose stub)",
+        "- `01_truth/research/` `[LOGIC TO BE CONFIRMED]` (truth-tier research evidence; promotion target for shadow research)",
+        "  - `01_truth/research/validations/README.md` `[LOGIC TO BE CONFIRMED]` (promotion target for `03_shadow/validators/` verdicts once human-reviewed)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 114,
+      "line": "  - `01_truth/research/validations/README.md` `[LOGIC TO BE CONFIRMED]` (promotion target for `03_shadow/validators/` verdicts once human-reviewed)",
+      "context": [
+        "- `01_truth/research/` `[LOGIC TO BE CONFIRMED]` (truth-tier research evidence; promotion target for shadow research)",
+        "  - `01_truth/research/validations/README.md` `[LOGIC TO BE CONFIRMED]` (promotion target for `03_shadow/validators/` verdicts once human-reviewed)",
+        "- `01_truth/SYSTEMS-AND-API-REGISTER.md` `[LOGIC TO BE CONFIRMED]` (single register of all APIs, MCP servers, telephony systems, code modules, and their locations across all Amplified Partners repos)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 115,
+      "line": "- `01_truth/SYSTEMS-AND-API-REGISTER.md` `[LOGIC TO BE CONFIRMED]` (single register of all APIs, MCP servers, telephony systems, code modules, and their locations across all Amplified Partners repos)",
+      "context": [
+        "  - `01_truth/research/validations/README.md` `[LOGIC TO BE CONFIRMED]` (promotion target for `03_shadow/validators/` verdicts once human-reviewed)",
+        "- `01_truth/SYSTEMS-AND-API-REGISTER.md` `[LOGIC TO BE CONFIRMED]` (single register of all APIs, MCP servers, telephony systems, code modules, and their locations across all Amplified Partners repos)",
+        "- `02_build/README.md` `[LOGIC TO BE CONFIRMED]` (runnable artefacts routing stub)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 116,
+      "line": "- `02_build/README.md` `[LOGIC TO BE CONFIRMED]` (runnable artefacts routing stub)",
+      "context": [
+        "- `01_truth/SYSTEMS-AND-API-REGISTER.md` `[LOGIC TO BE CONFIRMED]` (single register of all APIs, MCP servers, telephony systems, code modules, and their locations across all Amplified Partners repos)",
+        "- `02_build/README.md` `[LOGIC TO BE CONFIRMED]` (runnable artefacts routing stub)",
+        "- `02_build/validators/README.md` `[LOGIC TO BE CONFIRMED]` (public-data validation framework; reference impl of `01_truth/schemas/2026-05_public-data-validation_v1.md`; ProfServices pilot at AMP-67)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 117,
+      "line": "- `02_build/validators/README.md` `[LOGIC TO BE CONFIRMED]` (public-data validation framework; reference impl of `01_truth/schemas/2026-05_public-data-validation_v1.md`; ProfServices pilot at AMP-67)",
+      "context": [
+        "- `02_build/README.md` `[LOGIC TO BE CONFIRMED]` (runnable artefacts routing stub)",
+        "- `02_build/validators/README.md` `[LOGIC TO BE CONFIRMED]` (public-data validation framework; reference impl of `01_truth/schemas/2026-05_public-data-validation_v1.md`; ProfServices pilot at AMP-67)",
+        "- `03_shadow/README.md` `[LOGIC TO BE CONFIRMED]` (experiment routing stub)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 118,
+      "line": "- `03_shadow/README.md` `[LOGIC TO BE CONFIRMED]` (experiment routing stub)",
+      "context": [
+        "- `02_build/validators/README.md` `[LOGIC TO BE CONFIRMED]` (public-data validation framework; reference impl of `01_truth/schemas/2026-05_public-data-validation_v1.md`; ProfServices pilot at AMP-67)",
+        "- `03_shadow/README.md` `[LOGIC TO BE CONFIRMED]` (experiment routing stub)",
+        "- `03_shadow/job-wrapups/README.md` `[NON-AUTHORITATIVE]` (wrap-ups/escalation notes location; learning only)"
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 181,
+      "line": "- Added `00_authority/AGENT_ROUTING.md` to **Candidate authority** as `[LOGIC TO BE CONFIRMED]`: agent-layer routing rule (which agent runs which task). Stacks on top of, and explicitly references, the model-layer routing in `cost-tools/token_proxy.py` (which decides Sonnet vs Haiku per call). Companion to AMP-28. Filed under Candidate authority to match the file's own `status: candidate` and the `DECISION_LOG.md` entry status `candidate (pending Ewan review)`.",
+      "context": [
+        "",
+        "- Added `00_authority/AGENT_ROUTING.md` to **Candidate authority** as `[LOGIC TO BE CONFIRMED]`: agent-layer routing rule (which agent runs which task). Stacks on top of, and explicitly references, the model-layer routing in `cost-tools/token_proxy.py` (which decides Sonnet vs Haiku per call). Companion to AMP-28. Filed under Candidate authority to match the file's own `status: candidate` and the `DECISION_LOG.md` entry status `candidate (pending Ewan review)`.",
+        "- Indexed cost-tools (`token_proxy.py`) into the spine via the existing register and manifest pointers \u2014 see `01_truth/SYSTEMS-AND-API-REGISTER.md` v2 (cost-tools / token-proxy section) and `02_build/INFRASTRUCTURE.md` v2 (token-proxy container row under AI / ML services). The proxy was on disk at `/opt/amplified/apps/real/token_proxy.py` since 2026-03-12 but was never deployed and never indexed; it is now deployed on Beast as the `token-proxy` container on `amplified-net` with healthcheck and `restart: always`."
+      ]
+    },
+    {
+      "file": "00_authority/MANIFEST.md",
+      "line_no": 226,
+      "line": "- Added `01_truth/SYSTEMS-AND-API-REGISTER.md` to **Candidate authority**: comprehensive register of all pre-built systems, APIs (124 CRM endpoints, 24 Command Centre endpoints, 19 Marketing Engine endpoints), 13 MCP servers, telephony/voice inventory (7 providers, 6 modules across 8 files), NightScout pipeline, content engine, safety layer, and cross-repo location index. `[LOGIC TO BE CONFIRMED]` pending Ewan review.",
+      "context": [
+        "",
+        "- Added `01_truth/SYSTEMS-AND-API-REGISTER.md` to **Candidate authority**: comprehensive register of all pre-built systems, APIs (124 CRM endpoints, 24 Command Centre endpoints, 19 Marketing Engine endpoints), 13 MCP servers, telephony/voice inventory (7 providers, 6 modules across 8 files), NightScout pipeline, content engine, safety layer, and cross-repo location index. `[LOGIC TO BE CONFIRMED]` pending Ewan review.",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/DECISION_LOG.md",
+      "line_no": 26,
+      "line": "- **Decision**: Create `00_authority/AGENT_ROUTING.md` v1 (`[LOGIC TO BE CONFIRMED]`) as the agent-layer routing rule \u2014 which agent (Devon, Cassian/OpenClaw, Cursor, Antigravity, Perplexity, Qwen) runs which class of task. Eight rules covering live-infrastructure code, clean-build edits, vault content, strategic decisions, external research, novel decisions, scheduled tasks, and customer-facing change. Stacks on top of `cost-tools/token_proxy.py` (the model-layer routing) and references but does not duplicate `00_authority/TAXONOMY.md` (the agent roster).",
+      "context": [
+        "",
+        "- **Decision**: Create `00_authority/AGENT_ROUTING.md` v1 (`[LOGIC TO BE CONFIRMED]`) as the agent-layer routing rule \u2014 which agent (Devon, Cassian/OpenClaw, Cursor, Antigravity, Perplexity, Qwen) runs which class of task. Eight rules covering live-infrastructure code, clean-build edits, vault content, strategic decisions, external research, novel decisions, scheduled tasks, and customer-facing change. Stacks on top of `cost-tools/token_proxy.py` (the model-layer routing) and references but does not duplicate `00_authority/TAXONOMY.md` (the agent roster).",
+        "- **Why**: AMP-28 asked for a routing rule. Without an explicit rule, agents inferred their own routing (which led to the cost-tools proxy being lost \u2014 nobody owned its deployment). This file is the missing coordination contract. Cost-tier classification is explicitly the proxy's job, not the taxonomy's job, so this file does not assign cost tiers per agent."
+      ]
+    },
+    {
+      "file": "00_authority/DECISION_LOG.md",
+      "line_no": 42,
+      "line": "- **Decision**: Create `01_truth/SYSTEMS-AND-API-REGISTER.md` \u2014 a single register documenting all pre-built APIs, MCP servers, telephony systems, and code modules across all Amplified Partners repos. Indexed in MANIFEST.md v40 as `[LOGIC TO BE CONFIRMED]`.",
+      "context": [
+        "",
+        "- **Decision**: Create `01_truth/SYSTEMS-AND-API-REGISTER.md` \u2014 a single register documenting all pre-built APIs, MCP servers, telephony systems, and code modules across all Amplified Partners repos. Indexed in MANIFEST.md v40 as `[LOGIC TO BE CONFIRMED]`.",
+        "- **Why**: Architect directed (\"we need a register somewhere ... a document that tells us what's where because nobody can remember\"). Automated scan found 124 CRM REST endpoints, 24 Command Centre endpoints, 19 Marketing Engine endpoints, 13 MCP servers (8 Cove with 37 tools + 5 CRM), and a complete telephony inventory (7 providers, 6 modules across 8 files) \u2014 far more than the ~20 originally expected. Without a single register, this knowledge existed only in the codebase and was not discoverable without grepping every repo."
+      ]
+    },
+    {
+      "file": "00_authority/DECISION_LOG.md",
+      "line_no": 205,
+      "line": "- **Decision**: Use the placeholder token `[LOGIC TO BE CONFIRMED]` for any incomplete logic.",
+      "context": [
+        "",
+        "- **Decision**: Use the placeholder token `[LOGIC TO BE CONFIRMED]` for any incomplete logic.",
+        "- **Why**: Prevent assistants from guessing missing logic (\u201ccompleteness paradox\u201d)."
+      ]
+    },
+    {
+      "file": "00_authority/BUILD_LOOP.md",
+      "line_no": 127,
+      "line": "  - `[LOGIC TO BE CONFIRMED]` with a concrete test plan pointer (next step).",
+      "context": [
+        "- If it still requires proof-by-testing, mark that explicitly as:",
+        "  - `[LOGIC TO BE CONFIRMED]` with a concrete test plan pointer (next step).",
+        ""
+      ]
+    },
+    {
+      "file": "00_authority/BUILD_LOOP.md",
+      "line_no": 147,
+      "line": "- Any math form is written down (variables/thresholds/metrics), or explicitly marked `[LOGIC TO BE CONFIRMED]`.",
+      "context": [
+        "- Each step has measurable acceptance criteria (even if coarse).",
+        "- Any math form is written down (variables/thresholds/metrics), or explicitly marked `[LOGIC TO BE CONFIRMED]`.",
+        ""
+      ]
+    }
+  ]
+}
