@@ -1,0 +1,10 @@
+# CODEOWNERS — Amplified-Partners/perplexity-research
+# Signed-by: Devon-codeowners-daughter | 2026-05-05
+
+# Research intake
+inbox/* @ewanbramley
+
+# Contributing guidelines
+CONTRIBUTING.md @ewanbramley
+
+# No default owner — anyone can review
