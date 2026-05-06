@@ -504,4 +504,5 @@ The `COMPONENTS.md` manifest lists every macro, its parameters, allowed values, 
 
 ---
 
-*Signed: Cassian-research-subagent, 2026-05-05*
+*Signed: Cassian-research-subagent | 2026-05-05*
+*Signature fix: Devon-e0fc | 2026-05-06 | session devin-e0fcd2151c88406585bd956564a359ee*
