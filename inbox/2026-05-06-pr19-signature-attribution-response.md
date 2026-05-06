@@ -56,7 +56,9 @@ These are recommendations only — the team decides what (if anything) to land i
 
 ## Confidence
 
-OPINION 90%: this interpretation (retroactive signature corrections go in a separate response file, never as edits to the original drop) is the cleanest reading of `CONTRIBUTING.md` and matches Devin Review's stated recommendation. Lower confidence (60%) on whether the team would prefer the forward-looking fix #1 (author-side regex check) over #2 (rule clarification) — that's a team call, not a research-output call.
+OPINION 90%: this interpretation (retroactive signature corrections go in a separate response file, never as edits to the original drop) is the cleanest reading of `CONTRIBUTING.md` and matches Devin Review's stated recommendation.
+
+OPINION 60%: forward-looking fix #1 (author-side regex check) is a better next step than #2 (rule clarification) or #3 (subagent attribution convention) — that's a team call, not a research-output call.
 
 ---
 
