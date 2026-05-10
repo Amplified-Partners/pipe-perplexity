@@ -1,114 +1,108 @@
 # pplx-exporter v0.1.0
 
-Perplexity conversation exporter for the Amplified Partners knowledge pipeline.
+Authenticated web conversation exporter. Exports Perplexity threads to Markdown + JSON with full metadata, checkpoint resumability, and audit trail.
 
-Exports **all** your Perplexity threads to structured Markdown (YAML frontmatter) + raw JSON, with full resumability, audit logging, and a global manifest.
+## Architecture
 
-## Architecture Decisions
-
-| Choice | Rationale |
-|--------|-----------|
-| Playwright persistent session | Auth without cookie extraction — rides browser's own session |
-| `POST /rest/thread/list_ask_threads` | Reliable paginated discovery (not DOM-walk) |
-| `page.evaluate(fetch('/rest/thread/{slug}'))` | Clean fetch inheriting browser cookies |
-| Checkpoint after every thread | Full resumability from interruption |
-| Exponential backoff (2s base, 32s max, 5 retries) | Rate-limit hygiene on undocumented endpoints |
-| YAML frontmatter + per-thread JSON | Dual output for both human reading and pipeline ingestion |
-| JSONL audit log | Append-only accountability trail |
+- **`curl_cffi`** for all API requests — Chrome TLS fingerprint impersonation bypasses Cloudflare bot detection
+- **Playwright** only for initial interactive login (grabs session token once)
+- **Fingerprint rotation** on retries — each retry uses a different browser profile
+- **Checkpoint after every thread** — interrupt anytime, resume where you left off
+- **YAML frontmatter** on every Markdown file (slug, URL, title, space, timestamps, tier, hash)
+- **JSONL audit log** — append-only accountability trail
 
 ## Install
 
 ```bash
 cd tools/pplx-exporter
-npm install
-npx playwright install chromium
+pip install -e .
+playwright install chromium
 ```
 
 ## Usage
 
 ```bash
 # First run — opens browser for interactive login
-npm run export
+pplx-export
 
 # With options
-npx tsx src/index.ts --output ~/my-export --rate-limit 2000
+pplx-export --output ./my-export --rate-limit 2000 --batch-size 50
 
-# Headless (after first login saved session)
-npx tsx src/index.ts --headless
+# If you already have a session token
+pplx-export --token "your-session-token-here"
 ```
 
-## Options
+### CLI options
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-o, --output <dir>` | `./pplx-export` | Output directory |
-| `--headless` | `false` | Run headless (requires existing session) |
-| `--rate-limit <ms>` | `1500` | Delay between fetches |
-| `--batch-size <n>` | `20` | Threads per discovery batch |
-| `--max-retries <n>` | `5` | Retries per failed thread |
+| `-o, --output` | `./pplx-export` | Output directory |
+| `--headless` | off | Run browser in headless mode |
+| `--rate-limit` | `1500` | Milliseconds between API requests |
+| `--batch-size` | `20` | Threads per discovery page |
+| `--max-retries` | `5` | Retries on 429/503 with exponential backoff |
+| `--token` | — | Skip browser login, use this session token directly |
 
-## Output Structure
+## Output structure
 
 ```
 pplx-export/
-├── manifest.json          # Global index of all exported threads
-├── audit.log              # JSONL append-only event log
-├── checkpoint.json        # Resumability state
-├── ai-research/           # Threads grouped by Space
-│   ├── how-does-rlhf-work.md
-│   └── how-does-rlhf-work.json
-├── _unsorted/             # Threads without a Space
-│   ├── random-question.md
-│   └── random-question.json
-└── .browser-data/         # Playwright session (gitignored)
+├── AI-Research/
+│   ├── How-does-RLHF-work.md
+│   └── How-does-RLHF-work.json
+├── unsorted/
+│   └── ...
+├── manifest.json
+├── audit.log
+├── checkpoint.json
+└── .token
 ```
 
-## Markdown Format
+### Markdown frontmatter (per file)
 
-```markdown
+```yaml
 ---
 pplx_slug: abc123def456
 pplx_url: https://www.perplexity.ai/search/abc123def456
 title: "How does RLHF work?"
-space: AI Research
-created_at: 2026-01-15T14:32:00Z
-updated_at: 2026-01-15T15:10:00Z
+space: "AI Research"
+created_at: "2026-01-15T14:32:00Z"
+updated_at: "2026-01-15T15:10:00Z"
 source: perplexity
 tier: INTUITED
-tier_note: "Exported from Perplexity UI. Content not independently verified."
 export_tool: pplx-exporter-v0.1
 ---
-
-## How does RLHF work?
-
-[Answer with inline citations]
-
-### Sources
-
-1. [Title](url)
 ```
+
+## How it works
+
+1. **Auth**: First run opens Playwright browser for interactive login. Extracts `__Secure-next-auth.session-token` cookie and saves it locally.
+2. **Discovery**: Paginates `POST /rest/thread/list_ask_threads` (offset-based, batch_size per page).
+3. **Fetch**: For each thread, `GET /rest/thread/{slug}` with cursor pagination (first page 10, then 100).
+4. **Render**: Converts to Markdown with YAML frontmatter + raw JSON alongside.
+5. **Checkpoint**: Saves state after every thread. Resume anytime.
+
+## Rate limiting
+
+- Discovery: 1 request per `discovery_rate_ms` (default 2000ms)
+- Thread fetch: 1 request per `rate_limit_ms` (default 1500ms)
+- On 429/503: exponential backoff (base 2s, max 32s, 5 retries)
+- On retry: rotates browser fingerprint (Chrome TLS profile)
+- Maximum concurrency: 1 (sequential)
 
 ## Resumability
 
-The tool saves `checkpoint.json` after every thread fetch. If interrupted:
-- Run the same command again
-- Discovery is skipped if already complete
-- Already-exported threads are skipped
-- New threads are appended
+Checkpoint saved after every thread fetch:
+- `checkpoint.json`: processed slugs, discovery state, run ID
+- Restart: skips discovery if already done, skips processed threads
 
-## What This Does NOT Do (v0.1 Limitations)
+## Dependencies
 
-- File attachment download (planned v0.2)
-- Memory/personalisation export (endpoint TBD)
-- Comet data (separate product)
-- Space-only threads not in main library (needs endpoint discovery)
-
-## Attribution
-
-Design brief: Ewan Bramley (Amplified Partners).
-Research: Perplexity Scraper Landscape analysis (2026-05-10).
-Best patterns taken from: simwai/perplexity-ai-export (checkpoint, pagination), kylebrodeur/perplexity-exporter (page.evaluate fetch).
+- `curl_cffi` — HTTP with Chrome TLS fingerprint (Cloudflare bypass)
+- `playwright` — browser automation for interactive login only
+- `pyyaml` — YAML frontmatter generation
+- Python 3.11+
 
 ---
 
-*Devon-0730 | 2026-05-10 | session `devin-073070e728fc44baa43c95536b8bb623`*
+*Signed-by: Devon-0730 | 2026-05-10 | devin-073070e728fc44baa43c95536b8bb623*

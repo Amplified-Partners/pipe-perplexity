@@ -1,5 +1,13 @@
-node_modules/
+__pycache__/
+*.pyc
+*.pyo
 dist/
+*.egg-info/
+.venv/
 pplx-export/
 .browser-data/
-*.log
+.token
+audit.log
+checkpoint.json
+manifest.json
+node_modules/
