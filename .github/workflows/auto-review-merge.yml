@@ -196,6 +196,7 @@ jobs:
 
       - name: Approve PR
         if: steps.review.outputs.verdict == 'approved'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.AUTO_MERGE_PAT }}
         run: |
