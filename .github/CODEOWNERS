@@ -1,0 +1,11 @@
+# CODEOWNERS — Amplified-Partners/perplexity-research
+#
+# Research automation pipeline. All changes require Ewan's review.
+#
+# Devon | 2026-05-30 | session devin-f382a5b63f3b43a38536166c91d8a5a9
+
+# Default — all changes require Ewan's review
+*                       @ewan-dot
+
+# CI/CD infrastructure — Devon manages workflows
+/.github/workflows/     @devin-ai-integration[bot]
