@@ -7,5 +7,5 @@
 # Default — all changes require Ewan's review
 *                       @ewan-dot
 
-# CI/CD infrastructure — Devon manages workflows
-/.github/workflows/     @devin-ai-integration[bot]
+# CI/CD infrastructure — Ewan reviews, Devon co-owns for operational changes
+/.github/workflows/     @ewan-dot @devin-ai-integration[bot]
