@@ -1,5 +1,6 @@
-# Perplexity Research — Amplified Partners
+# pipe-perplexity
 
+> Perplexity research intake pipeline — drop files here, Devon integrates.
 Research intake from Perplexity. Drop it here, Devon watches it, integrates what matters.
 
 ## How It Works
