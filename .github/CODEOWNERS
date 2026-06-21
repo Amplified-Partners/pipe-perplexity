@@ -1,0 +1,13 @@
+# CODEOWNERS — Amplified-Partners/perplexity-research
+#
+# Research automation pipeline.
+# Ewan is primary reviewer; Devon (devin-ai-integration[bot]) co-owns
+# for operational continuity when Ewan is unavailable.
+#
+# Devon (devin-ai-integration[bot]) | 2026-05-30 | session devin-f382a5b63f3b43a38536166c91d8a5a9
+
+# Default — Ewan reviews all changes, Devon co-owns for continuity
+*                       @ewan-dot @devin-ai-integration[bot]
+
+# CI/CD infrastructure — same co-ownership
+/.github/workflows/     @ewan-dot @devin-ai-integration[bot]
