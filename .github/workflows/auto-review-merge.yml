@@ -30,8 +30,8 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read
-  pull-requests: read
+  contents: write
+  pull-requests: write
 
 jobs:
   ai-review:
@@ -190,7 +190,7 @@ jobs:
 
       - name: Post review comment
         env:
-          GH_TOKEN: ${{ secrets.AUTO_MERGE_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/review_body.txt
 
@@ -198,7 +198,7 @@ jobs:
         if: steps.review.outputs.verdict == 'approved'
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.AUTO_MERGE_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ steps.authority_check.outputs.touches_authority }}" == "true" ]; then
             gh pr review ${{ github.event.pull_request.number }} --approve --body "Five Rods Governance Review: PASSED. All five principles intact. Auto-approved."
@@ -209,14 +209,14 @@ jobs:
       - name: Enable auto-merge
         if: steps.review.outputs.verdict == 'approved'
         env:
-          GH_TOKEN: ${{ secrets.AUTO_MERGE_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh pr merge ${{ github.event.pull_request.number }} --auto --squash
 
       - name: Block on Five Rods violation
         if: steps.review.outputs.verdict == 'changes_requested'
         env:
-          GH_TOKEN: ${{ secrets.AUTO_MERGE_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ steps.authority_check.outputs.touches_authority }}" == "true" ]; then
             gh pr comment ${{ github.event.pull_request.number }} --body "⛔ **Five Rods Governance Review: BLOCKED.** This PR touches governance files and the reviewer found issues. See review above. The Five Rods are non-negotiable — fix the flagged issues and push again."
@@ -227,6 +227,6 @@ jobs:
       - name: DeepSeek unavailable notice
         if: steps.review.outputs.verdict == 'unavailable'
         env:
-          GH_TOKEN: ${{ secrets.AUTO_MERGE_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **DeepSeek unavailable.** Five Rods review could not run. Copilot review (if configured via ruleset) is the fallback for code quality. This PR will not auto-merge — merge manually if Copilot review passes, or wait for DeepSeek to come back and re-push."
