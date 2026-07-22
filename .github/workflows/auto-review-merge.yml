@@ -17,9 +17,7 @@
 # principles, the system must resist it — regardless of who authored it.
 #
 # Reviewer architecture:
-#   Copilot (GitHub native) → code quality, style, bugs (configured via ruleset)
 #   DeepSeek (this workflow)  → Five Rods compliance + blocking defects
-#   Both independent. Substrate diversity. Neither can override the other.
 #
 # Devon-79d2 | 2026-05-13 | Five Rods rollout across all Amplified-Partners repos
 
@@ -168,7 +166,7 @@ jobs:
               review = result["choices"][0]["message"]["content"]
           except Exception as e:
               err_type = type(e).__name__
-              review = f"VERDICT: UNAVAILABLE\n\nDeepSeek review unavailable ({err_type}). Copilot review (if configured) is the fallback. This PR will NOT be auto-merged by this workflow — merge manually or wait for Copilot."
+              review = f"VERDICT: UNAVAILABLE\n\nDeepSeek review unavailable ({err_type}). This PR will NOT be auto-merged by this workflow — merge manually after your own check, or re-push to retry."
               print(f"DeepSeek API error: {err_type}", file=sys.stderr)
 
           print(review)
