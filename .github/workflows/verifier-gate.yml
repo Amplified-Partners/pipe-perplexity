@@ -32,6 +32,17 @@ name: verifier-gate
 #      non-github-actions source). Requires pull-requests: write.
 #   3. Codex comment summon stays out (quota, see v2 note 2); COMMENT_SUMMONS
 #      keeps the restore point.
+#   4. QUORUM WAIT: GitHub holds workflow runs triggered by Copilot's own
+#      review (actor without write access) in 'action_required', so the
+#      pull_request_review re-fire cannot be relied on for bot reviewers
+#      (observed on amplified-fleet-config#194, intent-interface#37,
+#      2026-07-23). The pull_request run therefore polls for quorum for up
+#      to 8 minutes after summoning before failing — the gate goes green in
+#      the same run once reviews land.
+#   5. Copilot IS re-requested on synchronize: a push moves the head SHA and
+#      invalidates prior reviews, so every new head needs a fresh review.
+#      The v2 loop-damping concern (Bugbot Autofix push loops) is gone with
+#      Bugbot retired; comment summons stay damped.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -67,47 +78,64 @@ jobs:
               if (b.includes('Kimi independent review')) return 'github-actions[bot]:kimi';
               return r.user.login;
             };
-            const latest = new Map();
-            for (const r of reviews) {
-              if (!r.user || r.user.login === author) continue;
-              if (r.state === 'PENDING') continue;
-              if (r.commit_id !== headSha) continue;
-              const key = sourceKey(r);
-              const prev = latest.get(key);
-              if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(key, r);
-            }
-            const active = [...latest.entries()].filter(([, r]) => r.state !== 'DISMISSED');
+            const activeSources = async () => {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number });
+              const latest = new Map();
+              for (const r of reviews) {
+                if (!r.user || r.user.login === author) continue;
+                if (r.state === 'PENDING') continue;
+                if (r.commit_id !== headSha) continue;
+                const key = sourceKey(r);
+                const prev = latest.get(key);
+                if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(key, r);
+              }
+              return [...latest.entries()].filter(([, r]) => r.state !== 'DISMISSED');
+            };
+            let active = await activeSources();
             core.info(`Active independent review sources: ${active.map(([k]) => k).join(', ') || 'none'}`);
             if (active.length < 2) {
-              // Summon only on PR lifecycle events that are not synchronize:
-              // re-summoning on every push feeds the Bugbot-autofix push loop.
-              // 'bugbot run' removed 2026-07-23 (Bugbot retired, architect cost decision).
-              // '@codex review' removed 2026-07-23 (quota); restore into COMMENT_SUMMONS when live.
-              const COMMENT_SUMMONS = [];
-              const summonable = context.eventName === 'pull_request'
-                && context.payload.action !== 'synchronize';
-              if (summonable) {
-                try {
-                  // GitHub Copilot code review — reviewer-request API. Must use the
-                  // bot login; the bare 'Copilot' alias silently no-ops via API.
-                  await github.rest.pulls.requestReviewers({
-                    owner: context.repo.owner, repo: context.repo.repo,
-                    pull_number: pr.number,
-                    reviewers: ['copilot-pull-request-reviewer[bot]'] });
-                  core.info('Requested GitHub Copilot code review for this head.');
-                } catch (e) {
-                  core.warning(`Copilot review request failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
-                }
-                try {
-                  for (const body of COMMENT_SUMMONS) {
-                    await github.rest.issues.createComment({
+              if (context.eventName === 'pull_request') {
+                // 'bugbot run' removed 2026-07-23 (Bugbot retired, architect cost decision).
+                // '@codex review' removed 2026-07-23 (quota); restore into COMMENT_SUMMONS when live.
+                const COMMENT_SUMMONS = [];
+                // Copilot: request on every pull_request event incl. synchronize —
+                // each new head SHA needs a fresh review. Skip if Copilot already
+                // reviewed this head. Must use the bot login; the bare 'Copilot'
+                // alias silently no-ops via API.
+                if (!active.some(([k]) => k === 'copilot-pull-request-reviewer')) {
+                  try {
+                    await github.rest.pulls.requestReviewers({
                       owner: context.repo.owner, repo: context.repo.repo,
-                      issue_number: pr.number, body });
+                      pull_number: pr.number,
+                      reviewers: ['copilot-pull-request-reviewer[bot]'] });
+                    core.info('Requested GitHub Copilot code review for this head.');
+                  } catch (e) {
+                    core.warning(`Copilot review request failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
                   }
-                  if (COMMENT_SUMMONS.length) core.info(`Summoned third-party reviewers for this head: ${COMMENT_SUMMONS.join(', ')}.`);
-                } catch (e) {
-                  core.warning(`Reviewer summon failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
+                }
+                // Comment summons stay damped to non-synchronize events.
+                if (context.payload.action !== 'synchronize') {
+                  try {
+                    for (const body of COMMENT_SUMMONS) {
+                      await github.rest.issues.createComment({
+                        owner: context.repo.owner, repo: context.repo.repo,
+                        issue_number: pr.number, body });
+                    }
+                    if (COMMENT_SUMMONS.length) core.info(`Summoned third-party reviewers for this head: ${COMMENT_SUMMONS.join(', ')}.`);
+                  } catch (e) {
+                    core.warning(`Reviewer summon failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
+                  }
+                }
+                // QUORUM WAIT: bot-triggered pull_request_review re-fires are held
+                // for approval by GitHub, so wait for reviews here (<= 8 min).
+                for (let i = 0; i < 16 && active.length < 2; i++) {
+                  await new Promise((res) => setTimeout(res, 30000));
+                  active = await activeSources();
+                  core.info(`Quorum wait ${(i + 1) * 30}s — active sources: ${active.map(([k]) => k).join(', ') || 'none'}`);
                 }
               }
-              core.setFailed(`Verifier gate: need >=2 active independent third-party review sources on head commit, have ${active.length}.`);
+              if (active.length < 2) {
+                core.setFailed(`Verifier gate: need >=2 active independent third-party review sources on head commit, have ${active.length}.`);
+              }
             }
