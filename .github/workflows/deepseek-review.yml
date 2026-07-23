@@ -1,62 +1,25 @@
-# Signed-by: cascade-mac (Cairn) | 2026-07-23 | session ca662a60
-# Independent review-only reviewer (DeepSeek substrate) — estate rollout
-# 2026-07-23 after Copilot's retirement thinned the reviewer pool. Review
-# only: no approve, no merge, no PAT (per amplified-fleet-config
-# governance/templates/auto-review.yml discipline). Fails visibly when the
-# API is unavailable; an absent review is never a silent pass.
+# Signed-by: cascade-mac (Cairn) | 2026-07-23 | ai-review thin caller
+# Independent review-only reviewer (DeepSeek substrate). Thin caller: ALL transport
+# logic lives in amplified-fleet-config's ai-review-reusable.yml (SSOT
+# harness/scripts/ai_review.py, sync-pinned embed) — scrubbed transport,
+# retry, defensive parsing, token receipts. Review only: no approve, no
+# merge, no PAT. Absent review = ::warning; quorum is enforced by
+# verifier-gate counting review sources, not by this check.
 name: deepseek-review
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
+concurrency:
+  group: deepseek-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 permissions:
   contents: read
   pull-requests: write
+  actions: write
 jobs:
   deepseek-review:
-    runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - name: diff
-        env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-        run: git diff "$BASE".."$HEAD" -- . ':!*.lock' ':!package-lock.json' ':!*.min.js' ':!*.min.css' | head -c 60000 > /tmp/pr_diff.txt
-      - name: review via DeepSeek
-        env:
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-        run: |
-          python3 - <<'PY'
-          import json, os, sys, urllib.request
-          diff = open('/tmp/pr_diff.txt').read()[:50000]
-          prompt = ("You are an independent third-party code reviewer for Amplified Partners. "
-                    "Review this PR diff for blocking defects only (bugs, security holes, plaintext "
-                    "secrets, logic errors) and Five Rods compliance (honesty, transparency, "
-                    "attribution, win-win, meritocracy). Concise: one verdict line, then at most "
-                    "5 bullet findings with file+line.\n\nDiff:\n```\n" + diff + "\n```")
-          body = json.dumps({"model": "deepseek-chat",
-                             "messages": [{"role": "user", "content": prompt}],
-                             "temperature": 0.1, "max_tokens": 1200}).encode()
-          req = urllib.request.Request("https://api.deepseek.com/chat/completions", data=body,
-                headers={"Authorization": "Bearer " + os.environ["DEEPSEEK_API_KEY"],
-                         "Content-Type": "application/json"})
-          try:
-              out = json.loads(urllib.request.urlopen(req, timeout=120).read())
-              review = out["choices"][0]["message"]["content"]
-          except Exception as e:
-              print(f"DeepSeek unavailable ({type(e).__name__}) — no review produced", file=sys.stderr)
-              sys.exit(0)  # review.json absent => next step fails visibly
-          open('/tmp/review.json', 'w').write(json.dumps(
-              {"event": "COMMENT",
-               "body": "🤖 **DeepSeek independent review** (review-only substrate)\n\n" + review}))
-          PY
-      - name: submit review (review-only, never approve)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ ! -f /tmp/review.json ]; then
-            echo "::error::DeepSeek produced no review — failing visibly (never a silent pass)"
-            exit 1
-          fi
-          gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" -X POST --input /tmp/review.json
+    uses: Amplified-Partners/amplified-fleet-config/.github/workflows/ai-review-reusable.yml@main
+    with:
+      provider: deepseek
+    secrets: inherit
