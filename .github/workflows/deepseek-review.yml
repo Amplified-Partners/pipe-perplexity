@@ -75,8 +75,9 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          rid=$(gh run list --repo "${{ github.repository }}" --workflow verifier-gate.yml --branch "${{ github.event.pull_request.head.ref }}" --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || true)
+          rid=$(gh run list --repo "${{ github.repository }}" --workflow verifier-gate.yml --branch "$HEAD_REF" --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || true)
           if [ -n "$rid" ]; then
             if gh run rerun "$rid" --repo "${{ github.repository }}" 2>/dev/null || gh run rerun "$rid" --repo "${{ github.repository }}" --failed 2>/dev/null; then
               echo "re-ran verifier-gate run $rid — reason: reviews posted with GITHUB_TOKEN emit no workflow events, so the gate cannot wake itself" | tee -a "$GITHUB_STEP_SUMMARY"
