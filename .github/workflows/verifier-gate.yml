@@ -1,0 +1,51 @@
+name: verifier-gate
+# Amplified principle: verification is third-party — no seat ratifies its own work.
+# This gate passes only when >=2 independent (non-author) reviewers have submitted reviews.
+# The implementation is a disposable hypothesis; the principle is the goal.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+permissions:
+  pull-requests: read
+jobs:
+  verifier-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number });
+            const headSha = pr.head.sha;
+            const latest = new Map();
+            for (const r of reviews) {
+              if (!r.user || r.user.login === author) continue;
+              if (r.state === 'PENDING') continue;
+              if (r.commit_id !== headSha) continue;
+              const prev = latest.get(r.user.login);
+              if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(r.user.login, r);
+            }
+            const active = [...latest.values()].filter(r => r.state !== 'DISMISSED');
+            core.info(`Active independent reviewers: ${active.map(r => r.user.login).join(', ') || 'none'}`);
+            if (active.length < 2) {
+              if (context.eventName === 'pull_request') {
+                try {
+                  for (const body of ['bugbot run', '@codex review']) {
+                    await github.rest.issues.createComment({
+                      owner: context.repo.owner, repo: context.repo.repo,
+                      issue_number: pr.number, body });
+                  }
+                  core.info('Summoned third-party reviewers for this head (bugbot, codex).');
+                } catch (e) {
+                  core.warning(`Reviewer summon failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
+                }
+              }
+              core.setFailed(`Verifier gate: need >=2 active independent third-party reviews on head commit, have ${active.length}.`);
+            }
