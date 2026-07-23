@@ -1,0 +1,13 @@
+# S17 (drift 2026-07-18) — third-party validation gate. Thin caller: the
+# logic lives in the vault's estate-gate-reusable.yml; required-check
+# context is "estate-gate / estate-gate".
+name: estate-gate
+on:
+  pull_request: { branches: [main] }
+  merge_group: {}
+permissions:
+  contents: read
+jobs:
+  estate-gate:
+    uses: Amplified-Partners/amplified-fleet-config/.github/workflows/estate-gate-reusable.yml@main
+    secrets: inherit
