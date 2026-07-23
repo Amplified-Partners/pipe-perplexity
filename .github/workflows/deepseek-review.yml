@@ -81,6 +81,7 @@ jobs:
           if [ -n "$rid" ]; then
             if gh run rerun "$rid" --repo "${{ github.repository }}" 2>/dev/null || gh run rerun "$rid" --repo "${{ github.repository }}" --failed 2>/dev/null; then
               echo "re-ran verifier-gate run $rid — reason: reviews posted with GITHUB_TOKEN emit no workflow events, so the gate cannot wake itself" | tee -a "$GITHUB_STEP_SUMMARY"
+              gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --body "🔁 verifier-gate re-run requested (run $rid) — bot-posted reviews emit no events; this comment is the timeline audit trail." 2>/dev/null || true
             else
               echo "verifier nudge skipped (rerun rejected)" | tee -a "$GITHUB_STEP_SUMMARY"
             fi
