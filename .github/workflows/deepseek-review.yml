@@ -7,7 +7,10 @@
 name: deepseek-review
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
+concurrency:
+  group: deepseek-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 permissions:
   contents: read
   pull-requests: write
@@ -22,14 +25,18 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
-        run: git diff "$BASE".."$HEAD" -- . ':!*.lock' ':!package-lock.json' ':!*.min.js' ':!*.min.css' | head -c 60000 > /tmp/pr_diff.txt
+        run: git diff "$BASE"..."$HEAD" -- . ':!*.lock' ':!package-lock.json' ':!*.min.js' ':!*.min.css' | head -c 60000 > /tmp/pr_diff.txt
       - name: review via DeepSeek
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           python3 - <<'PY'
           import json, os, sys, urllib.request
-          diff = open('/tmp/pr_diff.txt').read()[:50000]
+          raw = open('/tmp/pr_diff.txt').read()
+          if len(raw) >= 60000:
+              print("diff exceeds the 60000-byte review cap — failing closed, no partial-diff review", file=sys.stderr)
+              sys.exit(0)  # review.json absent => submit step fails visibly
+          diff = raw[:50000]
           prompt = ("You are an independent third-party code reviewer for Amplified Partners. "
                     "Review this PR diff for blocking defects only (bugs, security holes, plaintext "
                     "secrets, logic errors) and Five Rods compliance (honesty, transparency, "
@@ -44,6 +51,9 @@ jobs:
           try:
               out = json.loads(urllib.request.urlopen(req, timeout=120).read())
               review = out["choices"][0]["message"]["content"]
+              if not (review or "").strip():
+                  print("empty model output — no review produced", file=sys.stderr)
+                  sys.exit(0)
           except Exception as e:
               print(f"DeepSeek unavailable ({type(e).__name__}) — no review produced", file=sys.stderr)
               sys.exit(0)  # review.json absent => next step fails visibly
