@@ -1,7 +1,24 @@
 name: verifier-gate
 # Amplified principle: verification is third-party — no seat ratifies its own work.
-# This gate passes only when >=2 independent (non-author) reviewers have submitted reviews.
+# This gate passes only when >=2 independent (non-author) review SOURCES have
+# submitted reviews on the head commit.
 # The implementation is a disposable hypothesis; the principle is the goal.
+#
+# v2 2026-07-23 | Seat: claude-cowork (Ewan's session) | changes + backing:
+#   1. IDENTITY DE-COLLAPSE: Five Rods and the DeepSeek review-only substrate
+#      both post via GITHUB_TOKEN as github-actions[bot]; v1 keyed reviewers by
+#      login, so two independent substrates counted as ONE reviewer and quorum
+#      was unreachable from self-hosted reviewers alone (observed estate-wide
+#      2026-07-23, e.g. intent-interface#20). v2 keys github-actions[bot]
+#      reviews by their body marker (Five Rods / DeepSeek); unknown bodies
+#      still collapse to the bare login, so the split is closed-set.
+#   2. CODEX SUMMON REMOVED: chatgpt-codex-connector[bot] is over quota and
+#      answers every summon with a usage-limit comment, not a review (observed
+#      on 15+ PRs, 2026-07-23). Re-add to SUMMONS when quota is restored.
+#   3. LOOP DAMPING: v1 summoned on synchronize; Bugbot Autofix pushes reset
+#      the head SHA, invalidating reviews and re-triggering summon -> review ->
+#      autofix -> push (loop observed on amplified-fleet-config#160). v2
+#      summons only on opened/reopened/ready_for_review.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -24,28 +41,45 @@ jobs:
             const reviews = await github.paginate(github.rest.pulls.listReviews, {
               owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number });
             const headSha = pr.head.sha;
+            // Review-source key: distinct logins are distinct sources; for
+            // github-actions[bot] (shared login for self-hosted reviewers),
+            // split by known body markers only (closed set — unknown bodies
+            // collapse to the bare login rather than minting new sources).
+            const sourceKey = (r) => {
+              if (r.user.login !== 'github-actions[bot]') return r.user.login;
+              const b = r.body || '';
+              if (b.includes('Five Rods Review')) return 'github-actions[bot]:five-rods';
+              if (b.includes('DeepSeek independent review')) return 'github-actions[bot]:deepseek';
+              return r.user.login;
+            };
             const latest = new Map();
             for (const r of reviews) {
               if (!r.user || r.user.login === author) continue;
               if (r.state === 'PENDING') continue;
               if (r.commit_id !== headSha) continue;
-              const prev = latest.get(r.user.login);
-              if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(r.user.login, r);
+              const key = sourceKey(r);
+              const prev = latest.get(key);
+              if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(key, r);
             }
-            const active = [...latest.values()].filter(r => r.state !== 'DISMISSED');
-            core.info(`Active independent reviewers: ${active.map(r => r.user.login).join(', ') || 'none'}`);
+            const active = [...latest.entries()].filter(([, r]) => r.state !== 'DISMISSED');
+            core.info(`Active independent review sources: ${active.map(([k]) => k).join(', ') || 'none'}`);
             if (active.length < 2) {
-              if (context.eventName === 'pull_request') {
+              // Summon only on PR lifecycle events that are not synchronize:
+              // re-summoning on every push feeds the Bugbot-autofix push loop.
+              const SUMMONS = ['bugbot run'];  // '@codex review' removed 2026-07-23 (quota); restore when live
+              const summonable = context.eventName === 'pull_request'
+                && context.payload.action !== 'synchronize';
+              if (summonable) {
                 try {
-                  for (const body of ['bugbot run', '@codex review']) {
+                  for (const body of SUMMONS) {
                     await github.rest.issues.createComment({
                       owner: context.repo.owner, repo: context.repo.repo,
                       issue_number: pr.number, body });
                   }
-                  core.info('Summoned third-party reviewers for this head (bugbot, codex).');
+                  core.info(`Summoned third-party reviewers for this head: ${SUMMONS.join(', ')}.`);
                 } catch (e) {
                   core.warning(`Reviewer summon failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
                 }
               }
-              core.setFailed(`Verifier gate: need >=2 active independent third-party reviews on head commit, have ${active.length}.`);
+              core.setFailed(`Verifier gate: need >=2 active independent third-party review sources on head commit, have ${active.length}.`);
             }
