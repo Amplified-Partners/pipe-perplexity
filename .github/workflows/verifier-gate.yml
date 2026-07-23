@@ -19,19 +19,32 @@ name: verifier-gate
 #      the head SHA, invalidating reviews and re-triggering summon -> review ->
 #      autofix -> push (loop observed on amplified-fleet-config#160). v2
 #      summons only on opened/reopened/ready_for_review.
+#
+# v3 2026-07-23 | Seat: cursor | changes + backing:
+#   1. BUGBOT RETIRED: architect decision (cost) — Cursor Bugbot is disabled at
+#      the account level and is no longer part of the gate machinery. The
+#      'bugbot run' comment summon is removed; Bugbot is NOT a required source.
+#   2. COPILOT SUMMON: when quorum is short, the gate now requests a GitHub
+#      Copilot code review via the reviewer-request API
+#      (reviewers: ['copilot-pull-request-reviewer[bot]'] — the bare login
+#      'Copilot' silently no-ops; verified empirically on amp-cursor-work#4,
+#      review arrived as login 'copilot-pull-request-reviewer', a distinct
+#      non-github-actions source). Requires pull-requests: write.
+#   3. Codex comment summon stays out (quota, see v2 note 2); COMMENT_SUMMONS
+#      keeps the restore point.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted, dismissed]
 permissions:
-  pull-requests: read
+  pull-requests: write
 jobs:
   verifier-gate:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read
-      issues: write
+      pull-requests: write   # request Copilot review (reviewer-request API)
+      issues: write          # comment summons (codex, when quota restored)
     steps:
       - uses: actions/github-script@v7
         with:
@@ -50,6 +63,8 @@ jobs:
               const b = r.body || '';
               if (b.includes('Five Rods Review')) return 'github-actions[bot]:five-rods';
               if (b.includes('DeepSeek independent review')) return 'github-actions[bot]:deepseek';
+              if (b.includes('Codex API independent review')) return 'github-actions[bot]:codex-api';
+              if (b.includes('Kimi independent review')) return 'github-actions[bot]:kimi';
               return r.user.login;
             };
             const latest = new Map();
@@ -66,17 +81,30 @@ jobs:
             if (active.length < 2) {
               // Summon only on PR lifecycle events that are not synchronize:
               // re-summoning on every push feeds the Bugbot-autofix push loop.
-              const SUMMONS = ['bugbot run'];  // '@codex review' removed 2026-07-23 (quota); restore when live
+              // 'bugbot run' removed 2026-07-23 (Bugbot retired, architect cost decision).
+              // '@codex review' removed 2026-07-23 (quota); restore into COMMENT_SUMMONS when live.
+              const COMMENT_SUMMONS = [];
               const summonable = context.eventName === 'pull_request'
                 && context.payload.action !== 'synchronize';
               if (summonable) {
                 try {
-                  for (const body of SUMMONS) {
+                  // GitHub Copilot code review — reviewer-request API. Must use the
+                  // bot login; the bare 'Copilot' alias silently no-ops via API.
+                  await github.rest.pulls.requestReviewers({
+                    owner: context.repo.owner, repo: context.repo.repo,
+                    pull_number: pr.number,
+                    reviewers: ['copilot-pull-request-reviewer[bot]'] });
+                  core.info('Requested GitHub Copilot code review for this head.');
+                } catch (e) {
+                  core.warning(`Copilot review request failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
+                }
+                try {
+                  for (const body of COMMENT_SUMMONS) {
                     await github.rest.issues.createComment({
                       owner: context.repo.owner, repo: context.repo.repo,
                       issue_number: pr.number, body });
                   }
-                  core.info(`Summoned third-party reviewers for this head: ${SUMMONS.join(', ')}.`);
+                  if (COMMENT_SUMMONS.length) core.info(`Summoned third-party reviewers for this head: ${COMMENT_SUMMONS.join(', ')}.`);
                 } catch (e) {
                   core.warning(`Reviewer summon failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
                 }
