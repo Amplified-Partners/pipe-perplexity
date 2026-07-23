@@ -188,11 +188,12 @@ jobs:
               f.write(f"{prefix}\n\n{review}")
           PYEOF
 
-      - name: Post review comment
+      - name: Post verdict as PR review (audit artifact)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/review_body.txt
+          jq -n --rawfile b /tmp/review_body.txt '{event: "COMMENT", body: $b}' > /tmp/review_post.json
+          gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" -X POST --input /tmp/review_post.json
 
       - name: Enable auto-merge
         if: steps.review.outputs.verdict == 'approved'
