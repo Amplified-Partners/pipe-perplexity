@@ -27,8 +27,11 @@ name: Five Rods Auto-Review + Merge
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
 
+concurrency:
+  group: five-rods-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 permissions:
   contents: write
   pull-requests: write
@@ -48,7 +51,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          git diff "$BASE_SHA".."$HEAD_SHA" -- . ':!*.lock' ':!package-lock.json' ':!*.min.js' ':!*.min.css' | head -c 60000 > /tmp/pr_diff.txt
+          git diff "$BASE_SHA"..."$HEAD_SHA" -- . ':!*.lock' ':!package-lock.json' ':!*.min.js' ':!*.min.css' | head -c 60000 > /tmp/pr_diff.txt
 
       - name: Check for governance-file changes
         id: authority_check
@@ -76,7 +79,8 @@ jobs:
           python3 << 'PYEOF'
           import os, json, sys, urllib.request
 
-          diff = open("/tmp/pr_diff.txt").read()[:50000]
+          diff_raw = open("/tmp/pr_diff.txt").read()
+          diff = diff_raw[:50000]
           title = os.environ.get("PR_TITLE", "")
           touches_authority = os.environ.get("TOUCHES_AUTHORITY", "false") == "true"
 
@@ -173,12 +177,16 @@ jobs:
 
           print(review)
 
-          if "VERDICT: APPROVED" in review:
+          lines = [l.strip() for l in review.splitlines() if l.strip()]
+          if lines and lines[0].startswith("[substrate:"):
+              lines = lines[1:]
+          first = lines[0] if lines else ""
+          if first == "VERDICT: APPROVED":
               verdict = "approved"
-          elif "VERDICT: UNAVAILABLE" in review:
+          elif first == "VERDICT: UNAVAILABLE":
               verdict = "unavailable"
           else:
-              verdict = "changes_requested"
+              verdict = "changes_requested"  # absent/ambiguous verdict fails closed
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"verdict={verdict}\n")
