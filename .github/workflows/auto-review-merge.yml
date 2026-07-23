@@ -30,6 +30,12 @@ name: Five Rods Auto-Review + Merge
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+concurrency:
+  # Restored in v3 (regression caught by control-centre's own reviewer on the
+  # v3 rollout PR): three repos carried this locally and the SSOT lacked it.
+  # Without it, rapid pushes race on /tmp/pr_diff.txt while a review is reading.
+  group: five-rods-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 permissions:
   contents: write
   pull-requests: write
@@ -61,7 +67,9 @@ jobs:
           python3 << 'PYEOF'
           import os, json, re, sys, urllib.request
 
-          diff = open("/tmp/pr_diff.txt").read()[:150000]
+          # errors='replace': `head -c` can sever a multi-byte UTF-8 character at
+          # the byte cap; a decode crash here would kill the review entirely.
+          diff = open("/tmp/pr_diff.txt", errors="replace").read()[:150000]
           total_bytes = int(open("/tmp/pr_diff_total_bytes.txt").read().strip() or "0")
           changed = set(l.strip() for l in open("/tmp/pr_files.txt") if l.strip())
           basenames = set(p.split("/")[-1] for p in changed)
@@ -192,8 +200,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr merge ${{ github.event.pull_request.number }} --auto --squash --match-head-commit "${{ github.event.pull_request.head.sha }}"
-        continue-on-error: true
+          gh pr merge ${{ github.event.pull_request.number }} --auto --squash --match-head-commit "${{ github.event.pull_request.head.sha }}" \
+            || { echo "::error::auto-merge enable failed — surfacing, not swallowing"; exit 1; }
       - name: Estate freeze notice
         if: steps.review.outputs.verdict == 'approved' && steps.freeze.outputs.frozen == 'true'
         env:
