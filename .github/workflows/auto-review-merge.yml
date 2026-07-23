@@ -1,3 +1,4 @@
+# Signed-by: cascade-mac (Cairn) | 2026-07-23 | session ca662a60
 # Five Rods Auto-Review + Merge
 #
 # Third-party reviewer (DeepSeek) checks every PR against the Five Rods
@@ -17,7 +18,6 @@
 # principles, the system must resist it — regardless of who authored it.
 #
 # Reviewer architecture:
-#   Copilot (GitHub native) → code quality, style, bugs (configured via ruleset)
 #   DeepSeek (this workflow)  → Five Rods compliance + blocking defects
 #   Both independent. Substrate diversity. Neither can override the other.
 #
@@ -168,7 +168,7 @@ jobs:
               review = result["choices"][0]["message"]["content"]
           except Exception as e:
               err_type = type(e).__name__
-              review = f"VERDICT: UNAVAILABLE\n\nDeepSeek review unavailable ({err_type}). Copilot review (if configured) is the fallback. This PR will NOT be auto-merged by this workflow — merge manually or wait for Copilot."
+              review = f"VERDICT: UNAVAILABLE\n\nDeepSeek review unavailable ({err_type}). This PR will NOT be auto-merged by this workflow — merge manually after your own check, or re-push to retry."
               print(f"DeepSeek API error: {err_type}", file=sys.stderr)
 
           print(review)
@@ -188,23 +188,12 @@ jobs:
               f.write(f"{prefix}\n\n{review}")
           PYEOF
 
-      - name: Post review comment
+      - name: Post verdict as PR review (audit artifact)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/review_body.txt
-
-      - name: Approve PR
-        if: steps.review.outputs.verdict == 'approved'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "${{ steps.authority_check.outputs.touches_authority }}" == "true" ]; then
-            gh pr review ${{ github.event.pull_request.number }} --approve --body "Five Rods Governance Review: PASSED. All five principles intact. Auto-approved."
-          else
-            gh pr review ${{ github.event.pull_request.number }} --approve --body "Five Rods Review: PASSED. Auto-approved."
-          fi
+          jq -n --rawfile b /tmp/review_body.txt '{event: "COMMENT", body: $b}' > /tmp/review_post.json
+          gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" -X POST --input /tmp/review_post.json
 
       - name: Enable auto-merge
         if: steps.review.outputs.verdict == 'approved'
