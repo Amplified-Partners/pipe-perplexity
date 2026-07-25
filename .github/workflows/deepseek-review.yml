@@ -35,9 +35,9 @@ jobs:
                     "secrets, logic errors) and Five Rods compliance (honesty, transparency, "
                     "attribution, win-win, meritocracy). Concise: one verdict line, then at most "
                     "5 bullet findings with file+line.\n\nDiff:\n```\n" + diff + "\n```")
-          body = json.dumps({"model": "deepseek-chat",
+          body = json.dumps({"model": "deepseek-v4-flash",
                              "messages": [{"role": "user", "content": prompt}],
-                             "temperature": 0.1, "max_tokens": 1200}).encode()
+                             "temperature": 0.1, "max_tokens": 8000}).encode()
           req = urllib.request.Request("https://api.deepseek.com/chat/completions", data=body,
                 headers={"Authorization": "Bearer " + os.environ["DEEPSEEK_API_KEY"],
                          "Content-Type": "application/json"})
