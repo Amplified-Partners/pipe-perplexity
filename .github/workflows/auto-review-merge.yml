@@ -35,7 +35,6 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  actions: write
 
 jobs:
   ai-review:
@@ -228,20 +227,3 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ **DeepSeek unavailable.** Five Rods review could not run. Copilot review (if configured via ruleset) is the fallback for code quality. This PR will not auto-merge — merge manually if Copilot review passes, or wait for DeepSeek to come back and re-push."
-      - name: Nudge verifier-gate re-run (bot reviews emit no events)
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-        run: |
-          rid=$(gh run list --repo "${{ github.repository }}" --workflow verifier-gate.yml --branch "$HEAD_REF" --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || true)
-          if [ -n "$rid" ]; then
-            if gh run rerun "$rid" --repo "${{ github.repository }}" 2>/dev/null || gh run rerun "$rid" --repo "${{ github.repository }}" --failed 2>/dev/null; then
-              echo "re-ran verifier-gate run $rid — reason: reviews posted with GITHUB_TOKEN emit no workflow events, so the gate cannot wake itself" | tee -a "$GITHUB_STEP_SUMMARY"
-              gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --body "🔁 verifier-gate re-run requested (run $rid) — bot-posted reviews emit no events; this comment is the timeline audit trail." 2>/dev/null || true
-            else
-              echo "verifier nudge skipped (rerun rejected)" | tee -a "$GITHUB_STEP_SUMMARY"
-            fi
-          else
-            echo "no verifier run to nudge" | tee -a "$GITHUB_STEP_SUMMARY"
-          fi
