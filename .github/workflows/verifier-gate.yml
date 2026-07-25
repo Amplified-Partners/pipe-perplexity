@@ -1,20 +1,70 @@
 name: verifier-gate
 # Amplified principle: verification is third-party — no seat ratifies its own work.
-# This gate passes only when >=2 independent (non-author) reviewers have submitted reviews.
+# This gate passes only when >=2 independent (non-author) review SOURCES have
+# submitted reviews on the head commit.
 # The implementation is a disposable hypothesis; the principle is the goal.
+#
+# v2 2026-07-23 | Seat: claude-cowork (Ewan's session) | changes + backing:
+#   1. IDENTITY DE-COLLAPSE: Five Rods and the DeepSeek review-only substrate
+#      both post via GITHUB_TOKEN as github-actions[bot]; v1 keyed reviewers by
+#      login, so two independent substrates counted as ONE reviewer and quorum
+#      was unreachable from self-hosted reviewers alone (observed estate-wide
+#      2026-07-23, e.g. intent-interface#20). v2 keys github-actions[bot]
+#      reviews by their body marker (Five Rods / DeepSeek); unknown bodies
+#      still collapse to the bare login, so the split is closed-set.
+#   2. CODEX SUMMON REMOVED: chatgpt-codex-connector[bot] is over quota and
+#      answers every summon with a usage-limit comment, not a review (observed
+#      on 15+ PRs, 2026-07-23). Re-add to SUMMONS when quota is restored.
+#   3. LOOP DAMPING: v1 summoned on synchronize; Bugbot Autofix pushes reset
+#      the head SHA, invalidating reviews and re-triggering summon -> review ->
+#      autofix -> push (loop observed on amplified-fleet-config#160). v2
+#      summons only on opened/reopened/ready_for_review.
+#
+# v3.1 2026-07-25 | Seat: cascade-mac | changes + backing:
+#   1. COPILOT REQUEST REMOVED: v3 note 2 below re-requested a Copilot review
+#      when quorum was short. Copilot was retired as a validator 2026-07-22
+#      (rulesets deleted estate-wide) — the request cannot produce a source.
+#   2. VERDICT NAMES THE ABSENT SUBSTRATE: a bare count reads the same whether
+#      one provider is down or all of them are. Estate-wide, 226 PRs sat at
+#      "have 1" for two days and the cause was only visible by opening a
+#      reviewer job's log.
+#
+# v3 2026-07-23 | Seat: cursor | changes + backing:
+#   1. BUGBOT RETIRED: architect decision (cost) — Cursor Bugbot is disabled at
+#      the account level and is no longer part of the gate machinery. The
+#      'bugbot run' comment summon is removed; Bugbot is NOT a required source.
+#   2. COPILOT SUMMON: when quorum is short, the gate now requests a GitHub
+#      Copilot code review via the reviewer-request API
+#      (reviewers: ['copilot-pull-request-reviewer[bot]'] — the bare login
+#      'Copilot' silently no-ops; verified empirically on amp-cursor-work#4,
+#      review arrived as login 'copilot-pull-request-reviewer', a distinct
+#      non-github-actions source). Requires pull-requests: write.
+#   3. Codex comment summon stays out (quota, see v2 note 2); COMMENT_SUMMONS
+#      keeps the restore point.
+#   4. QUORUM WAIT: GitHub holds workflow runs triggered by Copilot's own
+#      review (actor without write access) in 'action_required', so the
+#      pull_request_review re-fire cannot be relied on for bot reviewers
+#      (observed on amplified-fleet-config#194, intent-interface#37,
+#      2026-07-23). The pull_request run therefore polls for quorum for up
+#      to 8 minutes after summoning before failing — the gate goes green in
+#      the same run once reviews land.
+#   5. Copilot IS re-requested on synchronize: a push moves the head SHA and
+#      invalidates prior reviews, so every new head needs a fresh review.
+#      The v2 loop-damping concern (Bugbot Autofix push loops) is gone with
+#      Bugbot retired; comment summons stay damped.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted, dismissed]
 permissions:
-  pull-requests: read
+  pull-requests: write
 jobs:
   verifier-gate:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read
-      issues: write
+      pull-requests: write   # read reviews; comment summons if ever restored
+      issues: write          # comment summons (codex, when quota restored)
     steps:
       - uses: actions/github-script@v7
         with:
@@ -24,28 +74,75 @@ jobs:
             const reviews = await github.paginate(github.rest.pulls.listReviews, {
               owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number });
             const headSha = pr.head.sha;
-            const latest = new Map();
-            for (const r of reviews) {
-              if (!r.user || r.user.login === author) continue;
-              if (r.state === 'PENDING') continue;
-              if (r.commit_id !== headSha) continue;
-              const prev = latest.get(r.user.login);
-              if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(r.user.login, r);
-            }
-            const active = [...latest.values()].filter(r => r.state !== 'DISMISSED');
-            core.info(`Active independent reviewers: ${active.map(r => r.user.login).join(', ') || 'none'}`);
+            // Review-source key: distinct logins are distinct sources; for
+            // github-actions[bot] (shared login for self-hosted reviewers),
+            // split by known body markers only (closed set — unknown bodies
+            // collapse to the bare login rather than minting new sources).
+            const sourceKey = (r) => {
+              if (r.user.login !== 'github-actions[bot]') return r.user.login;
+              const b = r.body || '';
+              if (b.includes('Five Rods Review')) return 'github-actions[bot]:five-rods';
+              if (b.includes('DeepSeek independent review')) return 'github-actions[bot]:deepseek';
+              if (b.includes('Codex API independent review')) return 'github-actions[bot]:codex-api';
+              if (b.includes('Kimi independent review')) return 'github-actions[bot]:kimi';
+              return r.user.login;
+            };
+            const activeSources = async () => {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number });
+              const latest = new Map();
+              for (const r of reviews) {
+                if (!r.user || r.user.login === author) continue;
+                if (r.state === 'PENDING') continue;
+                if (r.commit_id !== headSha) continue;
+                const key = sourceKey(r);
+                const prev = latest.get(key);
+                if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(key, r);
+              }
+              return [...latest.entries()].filter(([, r]) => r.state !== 'DISMISSED');
+            };
+            let active = await activeSources();
+            core.info(`Active independent review sources: ${active.map(([k]) => k).join(', ') || 'none'}`);
             if (active.length < 2) {
               if (context.eventName === 'pull_request') {
-                try {
-                  for (const body of ['bugbot run', '@codex review']) {
-                    await github.rest.issues.createComment({
-                      owner: context.repo.owner, repo: context.repo.repo,
-                      issue_number: pr.number, body });
+                // 'bugbot run' removed 2026-07-23 (Bugbot retired, architect cost decision).
+                // '@codex review' removed 2026-07-23 (quota); restore into COMMENT_SUMMONS when live.
+                const COMMENT_SUMMONS = [];
+                // NO COPILOT REQUEST. v3 re-requested a Copilot review here.
+                // Copilot was retired as a validator 2026-07-22 (rulesets
+                // deleted estate-wide); the request cannot produce a source and
+                // only adds a failed write to the log. Removed 2026-07-25.
+                // Comment summons stay damped to non-synchronize events.
+                if (context.payload.action !== 'synchronize') {
+                  try {
+                    for (const body of COMMENT_SUMMONS) {
+                      await github.rest.issues.createComment({
+                        owner: context.repo.owner, repo: context.repo.repo,
+                        issue_number: pr.number, body });
+                    }
+                    if (COMMENT_SUMMONS.length) core.info(`Summoned third-party reviewers for this head: ${COMMENT_SUMMONS.join(', ')}.`);
+                  } catch (e) {
+                    core.warning(`Reviewer summon failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
                   }
-                  core.info('Summoned third-party reviewers for this head (bugbot, codex).');
-                } catch (e) {
-                  core.warning(`Reviewer summon failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
+                }
+                // QUORUM WAIT: bot-triggered pull_request_review re-fires are held
+                // for approval by GitHub, so wait for reviews here (<= 8 min).
+                for (let i = 0; i < 16 && active.length < 2; i++) {
+                  await new Promise((res) => setTimeout(res, 30000));
+                  active = await activeSources();
+                  core.info(`Quorum wait ${(i + 1) * 30}s — active sources: ${active.map(([k]) => k).join(', ') || 'none'}`);
                 }
               }
-              core.setFailed(`Verifier gate: need >=2 active independent third-party reviews on head commit, have ${active.length}.`);
+              if (active.length < 2) {
+                const EXPECTED = ['github-actions[bot]:five-rods',
+                                  'github-actions[bot]:deepseek',
+                                  'github-actions[bot]:kimi'];
+                const have = new Set(active.map(([k]) => k));
+                const absent = EXPECTED.filter((k) => !have.has(k));
+                core.setFailed(
+                  `Verifier gate: need >=2 active independent third-party review sources on head commit, have ${active.length}` +
+                  ` (${[...have].join(', ') || 'none'}). Absent: ${absent.join(', ') || 'none'}.` +
+                  ` A substrate whose job ran green but posted no review is a DEAD provider, not a passing one` +
+                  ` (measured 2026-07-25) — open that reviewer job's log for the provider's own error.`);
+              }
             }
