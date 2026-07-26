@@ -1,0 +1,36 @@
+# Signed-by: cascade-mac | 2026-07-23 | reviewer-key-health
+# The loud end of "keys never work". Reviewer substrates exit 0 on any error, so a
+# dead/wrong/quota'd key never posts and looks green. This runs harness/reviewer_key_health.py
+# nightly + on demand: a 1-token completion per substrate, LIVE/DEAD/ABSENT to the run
+# summary. A present-but-DEAD key fails the run (red) so it is impossible to miss.
+name: reviewer-key-health
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "17 6 * * *"   # 06:17 UTC daily
+  # Self-test: the probe runs whenever the probe itself changes. Also the only
+  # way to read the matrix before merge — workflow_dispatch requires the file
+  # on the default branch, which is precisely what a wedged verifier-gate
+  # prevents (the diagnostic cannot run until the deadlock it diagnoses ends).
+  pull_request:
+    paths:
+      - .github/workflows/reviewer-key-health.yml
+      - harness/reviewer_key_health.py
+      - harness/test_reviewer_key_health.py
+permissions:
+  contents: read
+jobs:
+  key-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: probe reviewer keys
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          KIMI_REVIEW_ENABLED: ${{ vars.KIMI_REVIEW_ENABLED }}
+          DEEPSEEK_REVIEW_MODEL: ${{ vars.DEEPSEEK_REVIEW_MODEL }}
+          OPENAI_REVIEW_MODEL: ${{ vars.OPENAI_REVIEW_MODEL }}
+          KIMI_REVIEW_MODEL: ${{ vars.KIMI_REVIEW_MODEL }}
+        run: python3 harness/reviewer_key_health.py --summary "$GITHUB_STEP_SUMMARY"

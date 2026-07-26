@@ -1,10 +1,10 @@
-# Retired: DeepSeek now runs as specialist and reciprocal validator inside the
+# Retired: Kimi now runs as specialist and reciprocal validator inside the
 # single staged pipeline. Kept as a visible tombstone so sync does not recreate
 # the old duplicate full-diff trigger.
-name: deepseek-review-retired
+name: kimi-review-retired
 on: workflow_dispatch
 jobs:
   retired:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Retired; validator-pipeline owns DeepSeek dispatch."
+      - run: echo "Retired; validator-pipeline owns Kimi dispatch."
