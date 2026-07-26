@@ -1,51 +1,167 @@
 name: verifier-gate
 # Amplified principle: verification is third-party — no seat ratifies its own work.
-# This gate passes only when >=2 independent (non-author) reviewers have submitted reviews.
+# This gate passes only on a current-head staged manifest: two DeepSeek and two
+# Kimi specialist instances, reciprocal cross-validation, then OpenAI APPROVE.
 # The implementation is a disposable hypothesis; the principle is the goal.
+#
+# v2 2026-07-23 | Seat: claude-cowork (Ewan's session) | changes + backing:
+#   1. IDENTITY DE-COLLAPSE: Five Rods and the DeepSeek review-only substrate
+#      both post via GITHUB_TOKEN as github-actions[bot]; v1 keyed reviewers by
+#      login, so two independent substrates counted as ONE reviewer and quorum
+#      was unreachable from self-hosted reviewers alone (observed estate-wide
+#      2026-07-23, e.g. intent-interface#20). v2 keys github-actions[bot]
+#      reviews by their body marker (Five Rods / DeepSeek); unknown bodies
+#      still collapse to the bare login, so the split is closed-set.
+#   2. CODEX SUMMON REMOVED: chatgpt-codex-connector[bot] is over quota and
+#      answers every summon with a usage-limit comment, not a review (observed
+#      on 15+ PRs, 2026-07-23). Re-add to SUMMONS when quota is restored.
+#   3. LOOP DAMPING: v1 summoned on synchronize; Bugbot Autofix pushes reset
+#      the head SHA, invalidating reviews and re-triggering summon -> review ->
+#      autofix -> push (loop observed on amplified-fleet-config#160). v2
+#      summons only on opened/reopened/ready_for_review.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted, dismissed]
+  # merge_group is REQUIRED once verifier-gate is a required status check:
+  # the merge queue builds a synthetic merge commit and waits for every
+  # required context to report on it. Without this trigger the queue waits
+  # forever and silently drops the entry (measured 2026-07-23: #210 and #214
+  # queued, estate-gate + vault-ci reported on the merge_group head at 20:53
+  # and 21:55, verifier-gate never did, both entries expired).
+  merge_group: {}
 permissions:
   pull-requests: read
+  checks: read
 jobs:
   verifier-gate:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
       issues: write
+      checks: read
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
+            // Merge-queue entries: quorum was already enforced at PR level —
+            // a PR cannot ENTER the queue until every required check,
+            // verifier-gate included, has succeeded on its head. The merge_group
+            // payload carries no pull_request, and reviews cannot bind to the
+            // synthetic merge commit, so re-counting here is impossible by
+            // construction, not skipped by choice. Pass through; PR-level
+            // enforcement is the gate. (Same shape as GitHub's own review
+            // requirements, which are PR-level, not merge-commit-level.)
+            if (context.eventName === 'merge_group') {
+              core.info('merge_group: quorum enforced at PR stage; pass-through.');
+              return;
+            }
             const pr = context.payload.pull_request;
             const author = pr.user.login;
             const reviews = await github.paginate(github.rest.pulls.listReviews, {
               owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number });
             const headSha = pr.head.sha;
+            // Review-source key: distinct logins are distinct sources; for
+            // github-actions[bot] (shared login for self-hosted reviewers),
+            // split by known body markers only (closed set — unknown bodies
+            // collapse to the bare login rather than minting new sources).
+            const sourceKey = (r) => {
+              if (r.user.login !== 'github-actions[bot]') return r.user.login;
+              const b = r.body || '';
+              if (b.includes('Five Rods Review')) return 'github-actions[bot]:five-rods';
+              if (b.includes('DeepSeek independent review')) return 'github-actions[bot]:deepseek';
+              if (b.includes('OpenAI independent review')) return 'github-actions[bot]:openai';
+              if (b.includes('Codex API independent review')) return 'github-actions[bot]:openai';  // legacy marker, same source
+              if (b.includes('Kimi independent review')) return 'github-actions[bot]:kimi';
+              if (b.includes('OpenAI final approval')) return 'github-actions[bot]:openai-final';
+              return r.user.login;
+            };
             const latest = new Map();
             for (const r of reviews) {
               if (!r.user || r.user.login === author) continue;
               if (r.state === 'PENDING') continue;
               if (r.commit_id !== headSha) continue;
-              const prev = latest.get(r.user.login);
-              if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(r.user.login, r);
+              const key = sourceKey(r);
+              const prev = latest.get(key);
+              if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(key, r);
             }
-            const active = [...latest.values()].filter(r => r.state !== 'DISMISSED');
-            core.info(`Active independent reviewers: ${active.map(r => r.user.login).join(', ') || 'none'}`);
-            if (active.length < 2) {
-              if (context.eventName === 'pull_request') {
-                try {
-                  for (const body of ['bugbot run', '@codex review']) {
-                    await github.rest.issues.createComment({
-                      owner: context.repo.owner, repo: context.repo.repo,
-                      issue_number: pr.number, body });
-                  }
-                  core.info('Summoned third-party reviewers for this head (bugbot, codex).');
-                } catch (e) {
-                  core.warning(`Reviewer summon failed (${e instanceof Error ? e.message : String(e)}) — gate verdict below is unaffected.`);
-                }
-              }
-              core.setFailed(`Verifier gate: need >=2 active independent third-party reviews on head commit, have ${active.length}.`);
+            const active = [...latest.entries()].filter(([, r]) => r.state !== 'DISMISSED');
+            const finalReview = active.find(([key]) => key === 'github-actions[bot]:openai-final')?.[1];
+            if (!finalReview) {
+              core.setFailed('Verifier gate: current-head OpenAI final approval manifest is absent.');
+              return;
             }
+            const match = (finalReview.body || '').match(
+              /<!-- validator-chain-manifest\s*\n([\s\S]*?)\n-->/
+            );
+            if (!match) {
+              core.setFailed('Verifier gate: OpenAI final review has no parseable chain manifest.');
+              return;
+            }
+            let manifest;
+            try { manifest = JSON.parse(match[1]); }
+            catch (e) {
+              core.setFailed(`Verifier gate: invalid chain manifest JSON (${e.message}).`);
+              return;
+            }
+            const primary = Array.isArray(manifest.primary) ? manifest.primary : [];
+            const cross = Array.isArray(manifest.cross) ? manifest.cross : [];
+            const providerCount = (name) => primary.filter(
+              r => r.provider === name && r.head_sha === headSha
+            ).length;
+            const skills = (name) => new Set(
+              primary.filter(r => r.provider === name).map(r => r.skill)
+            );
+            const pairs = new Set(cross.filter(
+              r => r.head_sha === headSha && r.validation_complete === true
+                && Array.isArray(r.confirmed_blockers) && r.confirmed_blockers.length === 0
+            ).map(r => `${r.provider}->${r.validates_provider}`));
+            const receipts = [...primary, ...cross].map(r => r.receipt).sort();
+            const accepted = Array.isArray(manifest.final?.accepted_receipts)
+              ? [...manifest.final.accepted_receipts].sort() : [];
+            const coverage = manifest.coverage || {};
+            const deterministic = manifest.deterministic_checks || {};
+            const forbiddenDeterministicChecks = new Set([
+              'validator-pipeline / review', 'verifier-gate', 'key-health'
+            ]);
+            const checkRuns = await github.paginate(github.rest.checks.listForRef, {
+              owner: context.repo.owner, repo: context.repo.repo, ref: headSha,
+              per_page: 100
+            });
+            const deterministicVerified =
+              typeof deterministic.name === 'string'
+              && deterministic.name.length > 0
+              && deterministic.head_sha === headSha
+              && deterministic.conclusion === 'success'
+              && !forbiddenDeterministicChecks.has(deterministic.name)
+              // Current-head status binding is exercised by tests/test_ai_review_reusable_sync.py.
+              && checkRuns.some(r =>
+                r.name === deterministic.name
+                && r.status === 'completed'
+                && r.conclusion === 'success'
+              );
+            const valid = manifest.schema === 'validator-chain/v1'
+              && manifest.head_sha === headSha
+              && coverage.reviewed_bytes === coverage.total_bytes
+              && coverage.total_bytes > 0
+              && deterministicVerified
+              && primary.length >= 4
+              && providerCount('deepseek') >= 2
+              && providerCount('deepseek') === providerCount('kimi')
+              && skills('deepseek').has('correctness-reliability')
+              && skills('deepseek').has('security-boundaries')
+              && skills('kimi').has('tests-operability')
+              && skills('kimi').has('governance-five-rods')
+              && cross.length === 2
+              && pairs.has('deepseek->kimi')
+              && pairs.has('kimi->deepseek')
+              && manifest.final?.provider === 'openai'
+              && manifest.final?.head_sha === headSha
+              && manifest.final?.decision === 'APPROVE'
+              && JSON.stringify(receipts) === JSON.stringify(accepted);
+            if (!valid) {
+              core.setFailed('Verifier gate: staged validator manifest is incomplete, stale, unresolved, or not APPROVE.');
+              return;
+            }
+            core.info('Verifier gate: DeepSeek/Kimi specialists and reciprocal checks accepted; OpenAI final APPROVE.');

@@ -1,6 +1,13 @@
-# S17 (drift 2026-07-18) — third-party validation gate. Thin caller: the
-# logic lives in the vault's estate-gate-reusable.yml; required-check
-# context is "estate-gate / estate-gate".
+# S17 (drift 2026-07-18) — third-party validation gate.
+# 2026-07-23 (cursor): vendored inline. estate-machine is an INTERNAL-visibility
+# repo; GitHub does not resolve reusable workflows that live in PRIVATE repos
+# (amplified-fleet-config) from internal callers, so the thin `uses:` caller
+# startup-failed with zero jobs on every PR (referenced_workflows resolved
+# empty; observed PRs #55/#56). The reusable workflow is self-contained by
+# design, so its single job is embedded here verbatim.
+# SSOT: Amplified-Partners/amplified-fleet-config/.github/workflows/estate-gate-reusable.yml
+# The job name below is pinned to "estate-gate / estate-gate" so the required
+# status-check context in ruleset "estate-gate required (S17)" keeps matching.
 name: estate-gate
 on:
   pull_request: { branches: [main] }
@@ -9,5 +16,180 @@ permissions:
   contents: read
 jobs:
   estate-gate:
-    uses: Amplified-Partners/amplified-fleet-config/.github/workflows/estate-gate-reusable.yml@main
-    secrets: inherit
+    name: estate-gate / estate-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: scorecard — security subset (secret scan, egress, honesty)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+        run: |
+          cat > /tmp/gate.py <<'GATE_PY'
+          #!/usr/bin/env python3
+          """Portable estate-gate security subset. Embedded copies below are pinned
+          verbatim to scorecard/run_scorecard.py and core/claim_verifier.py by
+          tests/test_reusable_gate_sync.py in the vault — edit the SSOT, update here."""
+          import json
+          import re
+          import sys
+          from dataclasses import asdict, dataclass
+
+          SEATS = ("cascade-mac", "cascade-beast", "cursor", "devin", "antigravity",
+                   "codex", "grok", "scribe")
+
+          # >>> VERBATIM run_scorecard.py (sync-enforced)
+          SECRET_RES = [
+              re.compile(p) for p in (
+                  r"AKIA[0-9A-Z]{16}", r"\bsk-[A-Za-z0-9]{20,}", r"\bghp_[A-Za-z0-9]{20,}",
+                  r"BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY",
+                  r"(api_key|token|password|secret)\s*[=:]\s*['\"][A-Za-z0-9+/_-]{16,}['\"]",
+              )
+          ]
+          # egress whitelist — new external hosts in added lines are a security flag
+          EGRESS_WHITELIST = (
+              "127.0.0.1", "localhost",  # loopback is not egress
+              "github.com", "api.github.com", "vellum.beast.amplifiedpartners.ai",
+              "search.beast.amplifiedpartners.ai", "codex-mcp.beast.amplifiedpartners.ai",
+              "chezmoi.io", "pre-commit.com",
+              "openpolicyagent.org", "anthropic.com", "code.claude.com", "arxiv.org",
+              "claude.com", "git-scm.com",
+              # architect-authorized 2026-07-17 (hermes seat stand-up; opencode entry
+              # added same day was removed same day by architect spend-effectiveness ruling):
+              "hermes-agent.nousresearch.com",
+              # estate tailnet Vellum (gk-worktree / vellum-flush; 2026-07-19):
+              "beast-amplified.tail27a0cc.ts.net",
+              # architect-authorized 2026-07-23 (Ewan, session ca662a60 — fully
+              # automated AI-review rollout): review substrates called from repo CI
+              # (deepseek-review.yml, auto-review-merge.yml):
+              "api.deepseek.com", "api.openai.com",
+              # Kimi review transport; see POLICY.yaml in the vault SSOT.
+              "api.moonshot.ai",
+              # Apple plist DOCTYPE identifier (XML DTD URI, never fetched at runtime;
+              # PR #169 morning-scout launchd — the selfheal plist predates the gate):
+              "www.apple.com",
+          )
+          # hosts with no dot are docker-network service names (litellm, postgres),
+          # not internet egress — skip them (measured fleet-clean-build#253, 2026-07-23)
+          HOST_RE = re.compile(r"https?://([\w-]+(?:\.[\w.-]+)+)")
+          # <<< VERBATIM run_scorecard.py (sync-enforced)
+
+          # >>> VERBATIM claim_verifier.py (sync-enforced)
+          # claim shape: verification verbs / live-system numbers asserted as fact
+          # (the regex text below is itself claim-shaped; this line is the backing the
+          #  embedded copy in estate-gate-reusable.yml needs: core/claim_verifier.py)
+          CLAIM_RE = re.compile(
+              r"\b(verified|proven|confirmed|measured|tested|passes|passing|green|works|working|"
+              r"live|deployed|complete[d]?|e2e)\b|\b\d+(\.\d+)?%|\b\d+/\d+\b",
+              re.IGNORECASE,
+          )
+          # backing shape: something checkable — path, url, PR/issue, hash, date-stamp, test id
+          BACKING_RE = re.compile(
+              r"[\w./-]+\.(py|sh|md|ya?ml|json|yml)\b|https?://|#\d+\b|\bPR ?#?\d+|\b[0-9a-f]{7,40}\b|"
+              r"\bverified: ?\d{4}-\d{2}-\d{2}|\btest_[\w]+|\b\d{4}-\d{2}-\d{2}\b",
+              re.IGNORECASE,
+          )
+          PROSE_SUFFIXES = (".md", ".txt", ".rst", ".yaml", ".yml")
+          NEIGHBOURHOOD = 3  # lines of hunk context that may carry the backing
+
+
+          @dataclass
+          class Claim:
+              file: str
+              line: str
+              backed: bool
+              backing: str  # what backed it, or ""
+
+
+          def _is_prose_line(path: str, line: str) -> bool:
+              # v1 scope: prose FILES only. Code comments proved too noisy on live diffs
+              # ("passes", "live" in hook comments — measured on d83eea2..#64, 2026-07-16);
+              # they return once the bounded estimator can grade adequacy.
+              if not path.endswith(PROSE_SUFFIXES):
+                  return False
+              stripped = line.strip()
+              # headings / bold-label scope lines are declarations, not claims
+              return not stripped.startswith(("#", "**", "|", "```"))
+
+
+          def parse_diff(diff_text: str):
+              """Yield (path, [hunk_added_line_groups]) from a unified diff."""
+              path, hunk, hunks = None, [], []
+              for raw in diff_text.splitlines():
+                  if raw.startswith("+++ b/"):
+                      if path and hunk:
+                          hunks.append(hunk)
+                      if path:
+                          yield path, hunks
+                      path, hunk, hunks = raw[6:], [], []
+                  elif raw.startswith("@@"):
+                      if hunk:
+                          hunks.append(hunk)
+                      hunk = []
+                  elif raw.startswith("+") and not raw.startswith("+++"):
+                      hunk.append(raw[1:])
+              if hunk:
+                  hunks.append(hunk)
+              if path:
+                  yield path, hunks
+
+
+          def verify_diff(diff_text: str) -> dict:
+              """Deterministic verdict over a unified diff. PASS = no unbacked new claim."""
+              claims: list[Claim] = []
+              for path, hunks in parse_diff(diff_text):
+                  for hunk in hunks:
+                      for i, line in enumerate(hunk):
+                          if not _is_prose_line(path, line) or not CLAIM_RE.search(line):
+                              continue
+                          lo, hi = max(0, i - NEIGHBOURHOOD), i + NEIGHBOURHOOD + 1
+                          window = hunk[lo:hi]
+                          m = next((BACKING_RE.search(w) for w in window if BACKING_RE.search(w)), None)
+                          claims.append(Claim(path, line.strip()[:160], bool(m),
+                                              m.group(0) if m else ""))
+              unbacked = [c for c in claims if not c.backed]
+              return {
+                  "status": "FAIL" if unbacked else "PASS",
+                  "claims": len(claims),
+                  "unbacked": [asdict(c) for c in unbacked],
+                  "adequacy": "UNSCORED",  # bounded-estimator residual, advisory only
+              }
+          # <<< VERBATIM claim_verifier.py (sync-enforced)
+
+          def added_lines(diff):
+              return [l[1:] for l in diff.splitlines()
+                      if l.startswith("+") and not l.startswith("+++")]
+
+          def main():
+              diff = sys.stdin.read()
+              added = added_lines(diff)
+              failures = []
+              hits = [l[:80] for l in added for r in SECRET_RES if r.search(l)]
+              print(f"privacy_secret_scan: {'PASS' if not hits else 'FAIL'} "
+                    f"({len(hits)} secret-shaped additions)")
+              if hits:
+                  failures.append("privacy_secret_scan")
+              hosts = {m.group(1) for l in added for m in [HOST_RE.search(l)] if m}
+              new = sorted(h for h in hosts
+                           if not any(h == w or h.endswith("." + w) for w in EGRESS_WHITELIST))
+              print(f"privacy_new_egress: {'PASS' if not new else 'FAIL'} (new hosts: {new})")
+              if new:
+                  failures.append("privacy_new_egress")
+              v = verify_diff(diff)
+              print(f"radical_honesty: {v['status']} "
+                    f"({v['claims']} claims, {len(v['unbacked'])} unbacked)")
+              if v["unbacked"]:
+                  print(json.dumps(v["unbacked"], indent=2))
+                  failures.append("radical_honesty")
+              if failures:
+                  print("estate-gate: FAIL — " + ", ".join(failures))
+                  return 1
+              print("estate-gate: PASS (security subset)")
+              return 0
+
+          if __name__ == "__main__":
+              sys.exit(main())
+          GATE_PY
+          git diff "$BASE..$HEAD" | python3 /tmp/gate.py
