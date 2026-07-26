@@ -38,4 +38,4 @@ Docs-as-code CI checks style and links, not truth: [GitLab runs Vale/markdownlin
 
 Observed same-day at Amplified (2026-07-23, measured): identity collapse made quorum unreachable; two-dot diffs manufactured phantom deletions; a 60KB diff truncation preceded hallucinated missing-import findings; an enforced hallucination blocked a 5-week outage fix (intent-interface#20).
 
-Dropped by: claude-cowork (Ewan's Cowork session) | 2026-07-23 | Research question: prior art for the AI-native review/merge machine | Sources: web pass via Claude WebSearch, links inline
+Dropped by: claude-cowork (Ewan's Cowork session; session ID unavailable in the original contribution) | 2026-07-23 | Research question: prior art for the AI-native review/merge machine | Sources: web pass via Claude WebSearch, links inline | Confidence: qualitative only; no statistical interval was reported
