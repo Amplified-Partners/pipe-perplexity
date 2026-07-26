@@ -19,7 +19,7 @@ jobs:
     name: estate-gate / estate-gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: scorecard — security subset (secret scan, egress, honesty)
@@ -65,6 +65,8 @@ jobs:
               # automated AI-review rollout): review substrates called from repo CI
               # (deepseek-review.yml, auto-review-merge.yml):
               "api.deepseek.com", "api.openai.com",
+              # Kimi review transport; see POLICY.yaml in the vault SSOT.
+              "api.moonshot.ai",
               # Apple plist DOCTYPE identifier (XML DTD URI, never fetched at runtime;
               # PR #169 morning-scout launchd — the selfheal plist predates the gate):
               "www.apple.com",
