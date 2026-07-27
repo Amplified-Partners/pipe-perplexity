@@ -59,6 +59,24 @@ jobs:
             }
             const pr = context.payload.pull_request;
             const author = pr.user.login;
+            // Dependency-bot PRs: quorum is impossible by construction, not
+            // skipped by choice. Dependabot-triggered workflows receive
+            // Dependabot secrets, not Actions secrets, so every reviewer key
+            // resolves empty and no specialist can ever post (measured
+            // 2026-07-27 org-wide: "MOONSHOT_API_KEY is not set", ~40 PRs).
+            // Failing here would report "quorum not met" when the truth is
+            // "quorum could not be attempted" — a false signal on a required
+            // check, which starves the merge path and trains readers to ignore
+            // red. Dependency bumps stay governed by the deterministic checks,
+            // which run at full force and are what actually catches a bad bump.
+            // Narrow by design: the bot login alone takes this path, so no
+            // human- or agent-authored PR can. Mirrors the applicability gate
+            // in ai-review-reusable.yml (fleet-config#334); both stop being
+            // taken once org-level Dependabot secrets exist.
+            if (author === 'dependabot[bot]') {
+              core.info(`${author}: reviewer keys unavailable to Dependabot-triggered runs by GitHub design; deterministic checks govern. Pass-through.`);
+              return;
+            }
             const reviews = await github.paginate(github.rest.pulls.listReviews, {
               owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number });
             const headSha = pr.head.sha;
