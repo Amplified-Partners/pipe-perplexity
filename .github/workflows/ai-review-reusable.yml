@@ -36,9 +36,31 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
+      # Applicability, evaluated BEFORE any work: is a third-party review even
+      # possible on this PR? Dependabot-triggered workflows receive Dependabot
+      # secrets, not Actions secrets, so every reviewer key resolves empty and
+      # the chain cannot run at all (measured 2026-07-27: "MOONSHOT_API_KEY is
+      # not set"). A review that is impossible by construction must not report
+      # as a review FAILURE. Deterministic checks still govern dependency bumps
+      # at full force. Keyed to the bot actor alone. Mirrors
+      # amplified-fleet-config#334; this repo calls a LOCAL copy of the
+      # reusable, so the shared fix does not reach it.
+      - name: applicability — can a third-party review run at all?
+        id: applicability
+        env:
+          PR_ACTOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "$PR_ACTOR" = "dependabot[bot]" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::AI review NOT APPLICABLE — dependency bump by ${PR_ACTOR}; deterministic checks govern."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.applicability.outputs.skip != 'true'
         with: { fetch-depth: 0 }
       - name: diff (merge-base, capped)
+        if: steps.applicability.outputs.skip != 'true'
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
@@ -53,6 +75,7 @@ jobs:
           head -c 150000 /tmp/pr_diff_full.txt > /tmp/pr_diff.txt
           wc -c < /tmp/pr_diff_full.txt | tr -d ' ' > /tmp/pr_diff_total_bytes.txt
       - name: materialize vault transport (sync-pinned embeds)
+        if: steps.applicability.outputs.skip != 'true'
         run: |
           mkdir -p /tmp/aiwf/harness/scripts
           cat > /tmp/aiwf/POLICY.yaml <<'EMBED_POLICY'
@@ -1250,7 +1273,7 @@ jobs:
           # <<< VERBATIM harness/scripts/validator_chain.py (sync-enforced)
           EMBED_VALIDATOR_CHAIN
       - name: wait for deterministic check receipt
-        if: inputs.provider == 'pipeline'
+        if: inputs.provider == 'pipeline' && steps.applicability.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
@@ -1272,6 +1295,7 @@ jobs:
           echo "::error::$DETERMINISTIC_CHECK did not complete in 5 minutes (.github/workflows/ai-review-reusable.yml)"
           exit 1
       - name: review via ${{ inputs.provider }}
+        if: steps.applicability.outputs.skip != 'true'
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
@@ -1302,6 +1326,7 @@ jobs:
             python3 /tmp/aiwf/harness/scripts/ai_review.py --provider "${{ inputs.provider }}" --diff /tmp/pr_diff.txt --total-bytes-file /tmp/pr_diff_total_bytes.txt --out /tmp/review.json
           fi
       - name: submit review (review-only, never approve)
+        if: steps.applicability.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROVIDER: ${{ inputs.provider }}
@@ -1322,7 +1347,7 @@ jobs:
           fi
           gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews" -X POST --input /tmp/review.json
       - name: enforce staged decision
-        if: inputs.provider == 'pipeline'
+        if: inputs.provider == 'pipeline' && steps.applicability.outputs.skip != 'true'
         run: |
           # validator_chain.py always writes this decision receipt beside
           # --out, including for rejected heads so their evidence is posted.
@@ -1335,7 +1360,7 @@ jobs:
             exit 1
           }
       - name: nudge verifier-gate re-run (bot reviews emit no workflow events)
-        if: always()
+        if: always() && steps.applicability.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}

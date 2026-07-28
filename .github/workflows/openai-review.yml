@@ -1,3 +1,10 @@
+# This repo calls a LOCAL copy of ai-review-reusable.yml, not the shared
+# substrate in amplified-fleet-config. The local copy carries its own
+# applicability gate: dependency-bot PRs skip the third-party review chain,
+# because Dependabot-triggered runs receive Dependabot secrets rather than
+# Actions secrets and every reviewer key resolves empty. Deterministic checks
+# still govern those PRs. See amplified-fleet-config#334 for the shared fix;
+# this copy needs its own because `uses:` points at the local path.
 # Signed-by: cascade-mac (Cairn) | 2026-07-23 | ai-review thin caller
 # Staged validator chain: parallel DeepSeek/Kimi specialists, reciprocal
 # cross-validation, then compact fail-closed OpenAI final approval.
