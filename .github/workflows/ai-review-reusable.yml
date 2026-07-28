@@ -93,12 +93,32 @@ jobs:
         # (plan 2026-07-23-002 U9): 150KB cap with DECLARED truncation —
         # ai_review.py appends a coverage line via pr_diff_total_bytes.
         run: |
-          # The generated reusable embeds the reviewed SSOT files byte-exactly;
-          # exclude that duplicate copy. Its sync test is the deterministic proof.
           # Zero context is a privacy and token-efficiency boundary: validators
           # receive every changed line and its location, but no unchanged
           # neighbouring source that the change did not ask them to review.
-          git diff --unified=0 "$BASE"..."$HEAD" -- . ':!*.lock' ':!package-lock.json' ':!*.min.js' ':!*.min.css' ':!.github/workflows/ai-review-reusable.yml' > /tmp/pr_diff_full.txt
+          #
+          # The generated reusable is excluded ONLY where it is a duplicate —
+          # i.e. in the vault, where harness/scripts/ai_review.py is the SSOT,
+          # is itself reviewed, and the sync test is the deterministic proof
+          # that the two agree. Reviewing both would bill the same diff twice.
+          #
+          # In a CONSUMER repo the SSOT is absent, so this file is the ONLY
+          # copy of the harness. Excluding it there had two costs, both
+          # measured on the 2026-07-28 fan-out (estate-machine#77 and five
+          # siblings): the consumer's entire validator change went unreviewed,
+          # AND a PR touching only this file produced an empty diff ->
+          # coverage.total_bytes == 0 -> verifier-gate's `total_bytes > 0`
+          # could never hold. A gate with no satisfying condition, on exactly
+          # the PRs that carry harness fixes to the repos that run them.
+          #
+          # Presence of the SSOT is the discriminator, not a repo name: it is
+          # the property that actually makes the copy redundant, and it stays
+          # correct if the vault is ever renamed or a second vault appears.
+          EXCLUDE_GENERATED=()
+          if [ -f harness/scripts/ai_review.py ]; then
+            EXCLUDE_GENERATED=(':!.github/workflows/ai-review-reusable.yml')
+          fi
+          git diff --unified=0 "$BASE"..."$HEAD" -- . ':!*.lock' ':!package-lock.json' ':!*.min.js' ':!*.min.css' "${EXCLUDE_GENERATED[@]}" > /tmp/pr_diff_full.txt
           head -c 150000 /tmp/pr_diff_full.txt > /tmp/pr_diff.txt
           wc -c < /tmp/pr_diff_full.txt | tr -d ' ' > /tmp/pr_diff_total_bytes.txt
       - name: materialize vault transport (sync-pinned embeds)
