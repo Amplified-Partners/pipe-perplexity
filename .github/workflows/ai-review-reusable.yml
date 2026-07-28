@@ -35,27 +35,51 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
+    env:
+      AI_OBJECTIVE_ID: ${{ github.repository }}:${{ github.event.pull_request.number || github.run_id }}:${{ inputs.provider }}
     steps:
       # Applicability, evaluated BEFORE any work: is a third-party review even
       # possible on this PR? Dependabot-triggered workflows receive Dependabot
-      # secrets, not Actions secrets, so every reviewer key resolves empty and
-      # the chain cannot run at all (measured 2026-07-27: "MOONSHOT_API_KEY is
-      # not set"). A review that is impossible by construction must not report
-      # as a review FAILURE. Deterministic checks still govern dependency bumps
-      # at full force. Keyed to the bot actor alone. Mirrors
-      # amplified-fleet-config#334; this repo calls a LOCAL copy of the
-      # reusable, so the shared fix does not reach it.
+      # secrets, not Actions secrets, so every reviewer key resolves empty.
+      # Pre-publication doctrine is deliberately blocked by dispatch_scrub, so
+      # it cannot be sent to any external model by construction either.
+      #
+      # A review that is impossible by construction must not report as a review
+      # FAILURE. That is a false signal: it says "review found a problem" when
+      # it means "review could not run", and a permanently-red required check
+      # starves the merge path and teaches readers to ignore red.
+      #
+      # This does NOT weaken the gate. Non-applicable changes stay governed by
+      # deterministic checks — tests, lint, CodeQL, secret scan — at full force.
+      # Pre-publication applicability is narrow by design: every changed file
+      # must be Markdown under docs/, and at least one must carry a scrub marker.
       - name: applicability — can a third-party review run at all?
         id: applicability
-        env:
-          PR_ACTOR: ${{ github.event.pull_request.user.login }}
-        run: |
-          if [ "$PR_ACTOR" = "dependabot[bot]" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::AI review NOT APPLICABLE — dependency bump by ${PR_ACTOR}; deterministic checks govern."
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v8.0.0
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const actor = pr.user.login;
+            if (actor === 'dependabot[bot]') {
+              core.setOutput('skip', 'true');
+              core.notice(`AI review NOT APPLICABLE — dependency bump by ${actor}. Reviewer keys are unavailable to Dependabot-triggered runs by GitHub design; deterministic checks govern this PR.`);
+              return;
+            }
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              pull_number: pr.number, per_page: 100
+            });
+            const docsOnly = files.length > 0
+              && files.every(f => f.filename.startsWith('docs/') && f.filename.endsWith('.md'));
+            const touchesPrePublication = files.some(
+              f => f.filename.includes('docs/decided/') || f.filename.includes('pre-publication/')
+            );
+            if (docsOnly && touchesPrePublication) {
+              core.setOutput('skip', 'true');
+              core.notice('AI review NOT APPLICABLE — pre-publication docs cannot leave the dispatch scrub boundary; deterministic checks govern this PR.');
+              return;
+            }
+            core.setOutput('skip', 'false');
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.applicability.outputs.skip != 'true'
         with: { fetch-depth: 0 }
@@ -71,7 +95,10 @@ jobs:
         run: |
           # The generated reusable embeds the reviewed SSOT files byte-exactly;
           # exclude that duplicate copy. Its sync test is the deterministic proof.
-          git diff "$BASE"..."$HEAD" -- . ':!*.lock' ':!package-lock.json' ':!*.min.js' ':!*.min.css' ':!.github/workflows/ai-review-reusable.yml' > /tmp/pr_diff_full.txt
+          # Zero context is a privacy and token-efficiency boundary: validators
+          # receive every changed line and its location, but no unchanged
+          # neighbouring source that the change did not ask them to review.
+          git diff --unified=0 "$BASE"..."$HEAD" -- . ':!*.lock' ':!package-lock.json' ':!*.min.js' ':!*.min.css' ':!.github/workflows/ai-review-reusable.yml' > /tmp/pr_diff_full.txt
           head -c 150000 /tmp/pr_diff_full.txt > /tmp/pr_diff.txt
           wc -c < /tmp/pr_diff_full.txt | tr -d ' ' > /tmp/pr_diff_total_bytes.txt
       - name: materialize vault transport (sync-pinned embeds)
@@ -355,6 +382,1411 @@ jobs:
               sys.exit(0)
           # <<< VERBATIM harness/dispatch_scrub.py (sync-enforced)
           EMBED_DISPATCH_SCRUB
+          cat > /tmp/aiwf/harness/ai_call_receipt.py <<'EMBED_AI_CALL_RECEIPT'
+          # >>> VERBATIM harness/ai_call_receipt.py (sync-enforced)
+          #!/usr/bin/env python3
+          """Content-free, provider-neutral AI call receipts.
+
+          The journal is telemetry, not model context. It records opaque identifiers,
+          route facts, usage and bounded provider scalars; prompts and responses have no
+          representation in this schema.
+          """
+          from __future__ import annotations
+
+          import argparse
+          import fcntl
+          import hashlib
+          import json
+          import os
+          import re
+          import stat
+          import sys
+          import urllib.error
+          import uuid
+          from collections import Counter
+          from contextlib import contextmanager
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from typing import Any, IO, Iterable, Iterator, Mapping, Sequence
+
+          SCHEMA = "ai-call-receipt/v1"
+          FINGERPRINT_SCHEMA = "opaque-evidence-fingerprint/v1"
+
+          FAILURE_CLASSES = frozenset(
+              {
+                  "authentication",
+                  "authorization",
+                  "quota",
+                  "rate_limit",
+                  "timeout",
+                  "connection",
+                  "provider_4xx",
+                  "provider_5xx",
+                  "response_invalid",
+                  "response_refused",
+                  "context_overflow",
+                  "scrub_blocked",
+                  "dispatch_blocked",
+                  "interrupted",
+                  "unknown",
+              }
+          )
+          TERMINAL_STATUSES = frozenset(
+              {
+                  "success",
+                  "failed",
+                  "response_invalid",
+                  "response_refused",
+                  "dispatch_blocked",
+              }
+          )
+          EVENTS = frozenset({"dispatch_started", "attempt_terminal", "dispatch_blocked"})
+          PROVIDER_METADATA_FIELDS = frozenset(
+              {
+                  "http_status",
+                  "request_id",
+                  "response_id",
+                  "finish_reason",
+                  "stop_reason",
+                  "idempotency_id",
+                  "cache_status",
+                  "service_tier",
+                  "region",
+                  "revalidation_grant_id",
+              }
+          )
+          USAGE_FIELDS = frozenset(
+              {
+                  "input_tokens",
+                  "output_tokens",
+                  "total_tokens",
+                  "cache_read_tokens",
+                  "cache_write_tokens",
+                  "reasoning_tokens",
+              }
+          )
+          SCOPE_FIELDS = frozenset(
+              {"seat", "surface", "delivery_unit", "project", "repository", "environment"}
+          )
+          ROUTE_FIELDS = frozenset({"provider", "route", "model"})
+          FINGERPRINT_INPUT_FIELDS = (
+              "evidence_digests",
+              "template_version",
+              "tool_schema_version",
+              "route_config_version",
+              "canonical_envelope_version",
+              "scrub_policy_version",
+              "digest_algorithm_version",
+          )
+          FINGERPRINT_FIELDS = frozenset(
+              {
+                  "schema",
+                  "value",
+                  "included_fields",
+                  "template_version",
+                  "tool_schema_version",
+                  "route_config_version",
+                  "canonical_envelope_version",
+                  "scrub_policy_version",
+                  "digest_algorithm_version",
+              }
+          )
+          COST_FIELDS = frozenset(
+              {
+                  "currency",
+                  "amount",
+                  "status",
+                  "price_source",
+                  "price_version",
+                  "effective_at",
+              }
+          )
+          TOP_LEVEL_FIELDS = frozenset(
+              {
+                  "schema",
+                  "event_id",
+                  "logical_call_id",
+                  "attempt_id",
+                  "previous_event_id",
+                  "timestamp",
+                  "event",
+                  "status",
+                  "failure_class",
+                  "requested",
+                  "actual",
+                  "scope",
+                  "fingerprint",
+                  "usage",
+                  "cost_estimate",
+                  "provider_metadata",
+                  "previous_record_hash",
+                  "record_hash",
+              }
+          )
+          _OPAQUE_DIGEST = re.compile(r"^[a-z0-9][a-z0-9_-]{1,31}:[0-9a-f]{32,128}$")
+          _OPAQUE_ID = re.compile(r"^(call|attempt|event)_[0-9a-f]{32}$")
+          _RECORD_HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
+          _FORBIDDEN_KEY_PARTS = (
+              "prompt",
+              "response_body",
+              "response_content",
+              "content",
+              "message",
+              "authorization",
+              "credential",
+              "api_key",
+              "secret",
+              "personal_name",
+          )
+          _MAX_STRING = 256
+          DEFAULT_JOURNAL = (
+              Path.home()
+              / ".local"
+              / "state"
+              / "amplified"
+              / "ai-call-receipts"
+              / "receipts.jsonl"
+          )
+          DEFAULT_USAGE_ALIASES = {
+              "input_tokens": "prompt_tokens",
+              "output_tokens": "completion_tokens",
+              "total_tokens": "total_tokens",
+              "cache_read_tokens": "prompt_cache_hit_tokens",
+              "cache_write_tokens": "prompt_cache_miss_tokens",
+              "reasoning_tokens": "reasoning_tokens",
+          }
+
+
+          class ReceiptError(RuntimeError):
+              """Base receipt error."""
+
+
+          class ReceiptValidationError(ReceiptError):
+              """The record is not in the closed content-free schema."""
+
+
+          class ReceiptSecurityError(ReceiptError):
+              """Journal ownership, mode, or no-follow rules were violated."""
+
+
+          class ReceiptDispatchBlocked(ReceiptError):
+              """Governed failure budget refused another external attempt."""
+
+
+          def default_journal_path(*, legacy_env: str | None = None) -> Path:
+              """Return the configured journal, optionally colocated with a legacy ledger."""
+              configured = os.environ.get("AI_CALL_RECEIPT_JOURNAL")
+              if configured:
+                  return Path(configured).expanduser()
+              if legacy_env and (legacy := os.environ.get(legacy_env)):
+                  return Path(legacy).expanduser().with_name("ai-call-receipts.jsonl")
+              return DEFAULT_JOURNAL
+
+
+          def scope_from_env(
+              *,
+              surface: str,
+              delivery_unit: str,
+              project: str = "unscoped",
+              repository: str = "amplified-fleet-config",
+              environment: str = "local",
+          ) -> dict[str, str]:
+              """Build the closed attribution scope from environment overrides."""
+              defaults = {
+                  "seat": "codex",
+                  "surface": surface,
+                  "delivery_unit": delivery_unit,
+                  "project": project,
+                  "repository": repository,
+                  "environment": environment,
+              }
+              return {
+                  field: os.environ.get(f"AMPLIFIED_{field.upper()}", value)
+                  for field, value in defaults.items()
+              }
+
+
+          def fingerprint_input(
+              *,
+              template_version: str,
+              tool_schema_version: str,
+              route_config_version: str,
+              evidence_digests: Sequence[str] | None = None,
+              canonical_envelope_version: str = "ai-call-envelope/v1",
+              scrub_policy_version: str = "dispatch-scrub/current",
+              digest_algorithm_version: str = "sha256/v1",
+          ) -> dict[str, object]:
+              """Build the canonical fingerprint input without accepting raw evidence."""
+              return {
+                  "evidence_digests": list(evidence_digests or ()),
+                  "template_version": template_version,
+                  "tool_schema_version": tool_schema_version,
+                  "route_config_version": route_config_version,
+                  "canonical_envelope_version": canonical_envelope_version,
+                  "scrub_policy_version": scrub_policy_version,
+                  "digest_algorithm_version": digest_algorithm_version,
+              }
+
+
+          def classify_transport_failure(
+              exc: Exception, *, invalid_exceptions: tuple[type[Exception], ...] = ()
+          ) -> str:
+              """Classify HTTP and transport failures into the receipt vocabulary."""
+              if isinstance(exc, urllib.error.HTTPError):
+                  if exc.code == 401:
+                      return "authentication"
+                  if exc.code == 403:
+                      return "authorization"
+                  if exc.code == 429:
+                      return "rate_limit"
+                  return "provider_5xx" if exc.code >= 500 else "provider_4xx"
+              if isinstance(exc, TimeoutError):
+                  return "timeout"
+              if isinstance(exc, urllib.error.URLError):
+                  return "timeout" if "timed out" in str(exc).lower() else "connection"
+              if invalid_exceptions and isinstance(exc, invalid_exceptions):
+                  return "response_invalid"
+              return "unknown"
+
+
+          def normalized_usage(
+              value: object,
+              aliases: Mapping[str, str] = DEFAULT_USAGE_ALIASES,
+              *,
+              nested: bool = True,
+          ) -> dict[str, int]:
+              """Normalize non-negative provider token counters through explicit aliases."""
+              source: object = value
+              if nested:
+                  source = value.get("usage") if isinstance(value, Mapping) else None
+              if not isinstance(source, Mapping):
+                  return {}
+              return {
+                  target: source[provider_field]
+                  for target, provider_field in aliases.items()
+                  if isinstance(source.get(provider_field), int)
+                  and not isinstance(source[provider_field], bool)
+                  and source[provider_field] >= 0
+              }
+
+
+          def unknown_cost(*, price_source: str, price_version: str) -> dict[str, object]:
+              """Return explicit unknown-cost provenance; unknown is never represented as zero."""
+              return {
+                  "currency": "USD",
+                  "amount": None,
+                  "status": "unknown",
+                  "price_source": price_source,
+                  "price_version": price_version,
+                  "effective_at": price_version,
+              }
+
+
+          def _opaque_id(kind: str) -> str:
+              return f"{kind}_{uuid.uuid4().hex}"
+
+
+          def _bounded_string(value: Any, field: str, *, nullable: bool = False) -> str | None:
+              if value is None and nullable:
+                  return None
+              if not isinstance(value, str) or not value or len(value) > _MAX_STRING:
+                  raise ReceiptValidationError(f"{field} must be a non-empty bounded string")
+              if any(ord(char) < 32 for char in value):
+                  raise ReceiptValidationError(f"{field} contains control characters")
+              return value
+
+
+          def _closed_mapping(
+              value: Any, allowed: frozenset[str], field: str
+          ) -> Mapping[str, Any]:
+              if not isinstance(value, Mapping):
+                  raise ReceiptValidationError(f"{field} must be an object")
+              unknown = set(value) - allowed
+              if unknown:
+                  raise ReceiptValidationError(f"{field} contains unknown fields: {sorted(unknown)}")
+              return value
+
+
+          def _reject_forbidden_keys(value: Any, path: str = "record") -> None:
+              if isinstance(value, Mapping):
+                  for key, child in value.items():
+                      lowered = str(key).lower()
+                      if lowered == "name" or any(part in lowered for part in _FORBIDDEN_KEY_PARTS):
+                          raise ReceiptValidationError(f"{path}.{key} is content or secret bearing")
+                      _reject_forbidden_keys(child, f"{path}.{key}")
+              elif isinstance(value, (list, tuple)):
+                  for index, child in enumerate(value):
+                      _reject_forbidden_keys(child, f"{path}[{index}]")
+
+
+          def exact_fingerprint(
+              *,
+              evidence_digests: Sequence[str],
+              template_version: str,
+              tool_schema_version: str,
+              route_config_version: str,
+              canonical_envelope_version: str,
+              scrub_policy_version: str,
+              digest_algorithm_version: str,
+          ) -> str:
+              """Fingerprint caller-supplied opaque evidence digests and config versions.
+
+              Raw evidence is intentionally not accepted, inspected, or hashed here.
+              Digest order is canonicalized because the evidence set is unordered.
+              """
+              if (
+                  not isinstance(evidence_digests, Sequence)
+                  or isinstance(evidence_digests, (str, bytes))
+                  or not evidence_digests
+              ):
+                  raise ReceiptValidationError("at least one opaque evidence digest is required")
+              canonical_digests: list[str] = []
+              for digest in evidence_digests:
+                  if not isinstance(digest, str) or not _OPAQUE_DIGEST.fullmatch(digest):
+                      raise ReceiptValidationError(
+                          "each opaque evidence digest must be algorithm:lowercase-hex"
+                      )
+                  canonical_digests.append(digest)
+              versions = {
+                  "template_version": _bounded_string(template_version, "template_version"),
+                  "tool_schema_version": _bounded_string(
+                      tool_schema_version, "tool_schema_version"
+                  ),
+                  "route_config_version": _bounded_string(
+                      route_config_version, "route_config_version"
+                  ),
+                  "canonical_envelope_version": _bounded_string(
+                      canonical_envelope_version, "canonical_envelope_version"
+                  ),
+                  "scrub_policy_version": _bounded_string(
+                      scrub_policy_version, "scrub_policy_version"
+                  ),
+                  "digest_algorithm_version": _bounded_string(
+                      digest_algorithm_version, "digest_algorithm_version"
+                  ),
+              }
+              envelope = {
+                  "schema": FINGERPRINT_SCHEMA,
+                  "evidence_digests": sorted(set(canonical_digests)),
+                  **versions,
+              }
+              encoded = json.dumps(
+                  envelope, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+              ).encode("ascii")
+              return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+          def _fingerprint_record(data: Mapping[str, Any]) -> dict[str, Any]:
+              unknown = set(data) - set(FINGERPRINT_INPUT_FIELDS)
+              if unknown or set(data) != set(FINGERPRINT_INPUT_FIELDS):
+                  raise ReceiptValidationError(
+                      f"fingerprint_input must contain exactly {list(FINGERPRINT_INPUT_FIELDS)}"
+                  )
+              evidence_digests = data["evidence_digests"]
+              if not isinstance(evidence_digests, Sequence) or isinstance(
+                  evidence_digests, (str, bytes)
+              ):
+                  raise ReceiptValidationError("evidence_digests must be a sequence")
+              # Missing caller-supplied evidence disables exact reuse, but must not disable
+              # receipting of the underlying call (KTD 3).
+              fingerprint = exact_fingerprint(**data) if evidence_digests else None
+              return {
+                  "schema": FINGERPRINT_SCHEMA,
+                  "value": fingerprint,
+                  "included_fields": list(FINGERPRINT_INPUT_FIELDS),
+                  **{field: data[field] for field in FINGERPRINT_INPUT_FIELDS if field != "evidence_digests"},
+              }
+
+
+          def _usage(value: Mapping[str, Any] | None) -> dict[str, int | None]:
+              supplied = {} if value is None else _closed_mapping(value, USAGE_FIELDS, "usage")
+              result: dict[str, int | None] = {}
+              for field in sorted(USAGE_FIELDS):
+                  item = supplied.get(field)
+                  if item is not None and (not isinstance(item, int) or isinstance(item, bool) or item < 0):
+                      raise ReceiptValidationError(f"usage.{field} must be a non-negative integer or null")
+                  result[field] = item
+              if result["total_tokens"] is None:
+                  inputs, outputs = result["input_tokens"], result["output_tokens"]
+                  if inputs is not None and outputs is not None:
+                      result["total_tokens"] = inputs + outputs
+              return result
+
+
+          def _route(provider: Any, route: Any, model: Any, field: str) -> dict[str, str | None]:
+              return {
+                  "provider": _bounded_string(provider, f"{field}.provider", nullable=True),
+                  "route": _bounded_string(route, f"{field}.route", nullable=True),
+                  "model": _bounded_string(model, f"{field}.model", nullable=True),
+              }
+
+
+          def validate_scope(value: Mapping[str, Any]) -> dict[str, str]:
+              """Return the canonical closed receipt scope."""
+              supplied = _closed_mapping(value, SCOPE_FIELDS, "scope")
+              if set(supplied) != SCOPE_FIELDS:
+                  raise ReceiptValidationError(f"scope requires {sorted(SCOPE_FIELDS)}")
+              return {field: _bounded_string(supplied[field], f"scope.{field}") for field in sorted(SCOPE_FIELDS)}  # type: ignore[misc]
+
+
+          def _provider_metadata(value: Mapping[str, Any] | None) -> dict[str, Any]:
+              supplied = (
+                  {} if value is None else _closed_mapping(value, PROVIDER_METADATA_FIELDS, "provider_metadata")
+              )
+              result: dict[str, Any] = {}
+              for field, item in supplied.items():
+                  if isinstance(item, bool) or item is None:
+                      result[field] = item
+                  elif isinstance(item, int) and not isinstance(item, bool):
+                      result[field] = item
+                  elif isinstance(item, float):
+                      if item != item or item in (float("inf"), float("-inf")):
+                          raise ReceiptValidationError(f"provider_metadata.{field} must be finite")
+                      result[field] = item
+                  elif isinstance(item, str):
+                      result[field] = _bounded_string(item, f"provider_metadata.{field}")
+                  else:
+                      raise ReceiptValidationError(
+                          f"provider_metadata.{field} must be an allowlisted scalar"
+                      )
+              return result
+
+
+          def _cost(value: Mapping[str, Any] | None) -> dict[str, Any] | None:
+              if value is None:
+                  return None
+              supplied = _closed_mapping(value, COST_FIELDS, "cost_estimate")
+              if set(supplied) != COST_FIELDS:
+                  raise ReceiptValidationError(f"cost_estimate requires {sorted(COST_FIELDS)}")
+              if supplied["status"] not in {"estimated", "unknown"}:
+                  raise ReceiptValidationError("cost_estimate.status must be estimated or unknown")
+              amount = supplied["amount"]
+              if amount is not None and (
+                  isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount < 0
+              ):
+                  raise ReceiptValidationError("cost_estimate.amount must be non-negative or null")
+              if supplied["status"] == "unknown" and amount is not None:
+                  raise ReceiptValidationError("unknown cost cannot have an amount")
+              return {
+                  field: (
+                      _bounded_string(supplied[field], f"cost_estimate.{field}")
+                      if field != "amount"
+                      else amount
+                  )
+                  for field in sorted(COST_FIELDS)
+              }
+
+
+          def new_record(
+              *,
+              event: str,
+              requested_provider: str,
+              requested_route: str,
+              requested_model: str,
+              scope: Mapping[str, Any],
+              fingerprint_input: Mapping[str, Any],
+              logical_call_id: str | None = None,
+              attempt_id: str | None = None,
+              previous_event_id: str | None = None,
+              actual_provider: str | None = None,
+              actual_route: str | None = None,
+              actual_model: str | None = None,
+              status: str | None = None,
+              failure_class: str | None = None,
+              usage: Mapping[str, Any] | None = None,
+              cost_estimate: Mapping[str, Any] | None = None,
+              provider_metadata: Mapping[str, Any] | None = None,
+          ) -> dict[str, Any]:
+              """Build and validate one immutable lifecycle record."""
+              if event not in EVENTS:
+                  raise ReceiptValidationError(f"event must be one of {sorted(EVENTS)}")
+              if event == "dispatch_started":
+                  status = status or "started"
+              elif event == "dispatch_blocked":
+                  status = status or "dispatch_blocked"
+                  failure_class = failure_class or "dispatch_blocked"
+              record = {
+                  "schema": SCHEMA,
+                  "event_id": _opaque_id("event"),
+                  "logical_call_id": logical_call_id or _opaque_id("call"),
+                  "attempt_id": attempt_id or _opaque_id("attempt"),
+                  "previous_event_id": previous_event_id,
+                  "timestamp": datetime.now(timezone.utc).isoformat(timespec="microseconds"),
+                  "event": event,
+                  "status": status,
+                  "failure_class": failure_class,
+                  "requested": _route(
+                      requested_provider, requested_route, requested_model, "requested"
+                  ),
+                  "actual": _route(actual_provider, actual_route, actual_model, "actual"),
+                  "scope": validate_scope(scope),
+                  "fingerprint": _fingerprint_record(fingerprint_input),
+                  "usage": _usage(usage),
+                  "cost_estimate": _cost(cost_estimate),
+                  "provider_metadata": _provider_metadata(provider_metadata),
+                  "previous_record_hash": None,
+                  "record_hash": None,
+              }
+              validate_record(record)
+              return record
+
+
+          def start_attempt(
+              journal: str | os.PathLike[str],
+              *,
+              requested_provider: str,
+              requested_route: str,
+              requested_model: str,
+              scope: Mapping[str, Any],
+              fingerprint: Mapping[str, Any],
+              logical_call_id: str | None = None,
+              provider_metadata: Mapping[str, Any] | None = None,
+              writer: Any = None,
+          ) -> dict[str, Any]:
+              """Create and durably append a dispatch start before external egress."""
+              metadata = dict(provider_metadata or {})
+              objective_id = metadata.get("idempotency_id") or os.environ.get(
+                  "AI_OBJECTIVE_ID"
+              )
+              if objective_id:
+                  metadata["idempotency_id"] = str(objective_id)[:256]
+                  journal_path = Path(journal)
+                  prior = read_records(journal_path) if journal_path.exists() else []
+                  from attempt_control import decide_attempt
+
+                  decision = decide_attempt(
+                      prior,
+                      fingerprint=_fingerprint_record(fingerprint)["value"],
+                      objective_id=metadata["idempotency_id"],
+                      route=requested_route,
+                      scope=scope,
+                      policy_version=os.environ.get("AI_ATTEMPT_POLICY_VERSION", "default/v1"),
+                      failure_ceiling=int(os.environ.get("AI_FAILURE_CEILING", "3")),
+                  )
+                  if decision["action"] == "block":
+                      blocked_start = new_record(
+                          event="dispatch_started",
+                          requested_provider=requested_provider,
+                          requested_route=requested_route,
+                          requested_model=requested_model,
+                          logical_call_id=logical_call_id,
+                          scope=scope,
+                          fingerprint_input=fingerprint,
+                          provider_metadata=metadata,
+                      )
+                      (writer or append_record)(journal, blocked_start)
+                      blocked = new_record(
+                          event="dispatch_blocked",
+                          requested_provider=requested_provider,
+                          requested_route=requested_route,
+                          requested_model=requested_model,
+                          logical_call_id=blocked_start["logical_call_id"],
+                          attempt_id=blocked_start["attempt_id"],
+                          previous_event_id=blocked_start["event_id"],
+                          actual_provider=requested_provider,
+                          actual_route=requested_route,
+                          actual_model=requested_model,
+                          scope=scope,
+                          fingerprint_input=fingerprint,
+                          status="dispatch_blocked",
+                          failure_class="dispatch_blocked",
+                          provider_metadata=metadata,
+                      )
+                      (writer or append_record)(journal, blocked)
+                      raise ReceiptDispatchBlocked("objective failure ceiling reached")
+              started = new_record(
+                  event="dispatch_started",
+                  requested_provider=requested_provider,
+                  requested_route=requested_route,
+                  requested_model=requested_model,
+                  logical_call_id=logical_call_id,
+                  scope=scope,
+                  fingerprint_input=fingerprint,
+                  provider_metadata=metadata,
+              )
+              (writer or append_record)(journal, started)
+              return started
+
+
+          def finish_attempt(
+              journal: str | os.PathLike[str],
+              started: Mapping[str, Any],
+              *,
+              status: str,
+              failure_class: str | None = None,
+              actual_provider: str | None = None,
+              actual_route: str | None = None,
+              actual_model: str | None = None,
+              usage: Mapping[str, Any] | None = None,
+              cost_estimate: Mapping[str, Any],
+              provider_metadata: Mapping[str, Any] | None = None,
+              event: str = "attempt_terminal",
+          ) -> dict[str, Any]:
+              """Append a terminal linked to its physical attempt and exact start fingerprint."""
+              requested = started["requested"]
+              terminal_metadata = dict(provider_metadata or {})
+              for field in ("idempotency_id", "revalidation_grant_id"):
+                  value = started.get("provider_metadata", {}).get(field)
+                  if value is not None:
+                      terminal_metadata.setdefault(field, value)
+              terminal = new_record(
+                  event=event,
+                  logical_call_id=started["logical_call_id"],
+                  attempt_id=started["attempt_id"],
+                  previous_event_id=started["event_id"],
+                  requested_provider=requested["provider"],
+                  requested_route=requested["route"],
+                  requested_model=requested["model"],
+                  actual_provider=actual_provider,
+                  actual_route=actual_route,
+                  actual_model=actual_model,
+                  scope=started["scope"],
+                  fingerprint_input={
+                      "evidence_digests": [],
+                      **{
+                          field: started["fingerprint"][field]
+                          for field in FINGERPRINT_INPUT_FIELDS
+                          if field != "evidence_digests"
+                      },
+                  },
+                  status=status,
+                  failure_class=failure_class,
+                  usage=usage,
+                  cost_estimate=cost_estimate,
+                  provider_metadata=terminal_metadata,
+              )
+              terminal["fingerprint"] = started["fingerprint"]
+              append_record(journal, terminal)
+              return terminal
+
+
+          def validate_record(record: Mapping[str, Any]) -> None:
+              """Validate the closed schema and its privacy-preserving scalar boundaries."""
+              if not isinstance(record, Mapping):
+                  raise ReceiptValidationError("record must be an object")
+              _reject_forbidden_keys(record)
+              unknown = set(record) - TOP_LEVEL_FIELDS
+              missing = TOP_LEVEL_FIELDS - set(record)
+              if unknown or missing:
+                  raise ReceiptValidationError(
+                      f"record fields mismatch; unknown={sorted(unknown)} missing={sorted(missing)}"
+                  )
+              if record["schema"] != SCHEMA:
+                  raise ReceiptValidationError(f"schema must be {SCHEMA}")
+              for field in ("event_id", "logical_call_id", "attempt_id"):
+                  if not isinstance(record[field], str) or not _OPAQUE_ID.fullmatch(record[field]):
+                      raise ReceiptValidationError(f"{field} is not an opaque receipt ID")
+              previous = record["previous_event_id"]
+              if previous is not None and (
+                  not isinstance(previous, str) or not _OPAQUE_ID.fullmatch(previous)
+              ):
+                  raise ReceiptValidationError("previous_event_id is not an opaque event ID")
+              _bounded_string(record["timestamp"], "timestamp")
+              if record["event"] not in EVENTS:
+                  raise ReceiptValidationError(f"event must be one of {sorted(EVENTS)}")
+              status = record["status"]
+              if record["event"] == "dispatch_started":
+                  if status != "started" or previous is not None or record["failure_class"] is not None:
+                      raise ReceiptValidationError("dispatch_started must be unlinked started state")
+              else:
+                  if status not in TERMINAL_STATUSES or previous is None:
+                      raise ReceiptValidationError("terminal events require terminal status and previous_event_id")
+                  if status == "success":
+                      if record["failure_class"] is not None:
+                          raise ReceiptValidationError("success cannot have failure_class")
+                  elif record["failure_class"] not in FAILURE_CLASSES:
+                      raise ReceiptValidationError(
+                          f"failure_class must be one of {sorted(FAILURE_CLASSES)}"
+                      )
+              for field in ("requested", "actual"):
+                  route = _closed_mapping(record[field], ROUTE_FIELDS, field)
+                  for route_field in ROUTE_FIELDS:
+                      _bounded_string(
+                          route.get(route_field),
+                          f"{field}.{route_field}",
+                          nullable=field == "actual",
+                      )
+              validate_scope(record["scope"])
+              fingerprint = _closed_mapping(record["fingerprint"], FINGERPRINT_FIELDS, "fingerprint")
+              if set(fingerprint) != FINGERPRINT_FIELDS:
+                  raise ReceiptValidationError("fingerprint record is incomplete")
+              if fingerprint["schema"] != FINGERPRINT_SCHEMA:
+                  raise ReceiptValidationError("fingerprint schema is invalid")
+              if fingerprint["value"] is not None and (
+                  not isinstance(fingerprint["value"], str)
+                  or not _OPAQUE_DIGEST.fullmatch(fingerprint["value"])
+              ):
+                  raise ReceiptValidationError("fingerprint value is invalid")
+              if fingerprint["included_fields"] != list(FINGERPRINT_INPUT_FIELDS):
+                  raise ReceiptValidationError("fingerprint included_fields are not canonical")
+              _usage(record["usage"])
+              _cost(record["cost_estimate"])
+              _provider_metadata(record["provider_metadata"])
+              for field in ("previous_record_hash", "record_hash"):
+                  value = record[field]
+                  if value is not None and (
+                      not isinstance(value, str) or not _RECORD_HASH.fullmatch(value)
+                  ):
+                      raise ReceiptValidationError(f"{field} is not a canonical record hash")
+              if record["previous_record_hash"] is not None and record["record_hash"] is None:
+                  raise ReceiptValidationError("previous_record_hash requires record_hash")
+
+
+          def _record_digest(record: Mapping[str, Any]) -> str:
+              unsigned = dict(record)
+              unsigned["record_hash"] = None
+              encoded = json.dumps(
+                  unsigned, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+              ).encode("ascii")
+              return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+          def _last_record_hash(path: Path) -> str | None:
+              if not path.exists() or path.stat().st_size == 0:
+                  return None
+              fd = _secure_open(path, os.O_RDONLY)
+              try:
+                  with os.fdopen(fd, "r", encoding="ascii") as stream:
+                      last = None
+                      for line in stream:
+                          if line.strip():
+                              last = json.loads(line)
+              finally:
+                  # os.fdopen owns and closes fd.
+                  pass
+              if not isinstance(last, Mapping):
+                  raise ReceiptValidationError(f"{path}: final receipt is invalid")
+              validate_record(last)
+              expected = _record_digest(last)
+              if last["record_hash"] != expected:
+                  raise ReceiptValidationError(f"{path}: final receipt hash mismatch")
+              return expected
+
+
+          def _assert_secure_fd(fd: int, path: Path) -> None:
+              details = os.fstat(fd)
+              if details.st_uid != os.getuid():
+                  raise ReceiptSecurityError(f"{path} owner is not the current user")
+              if not stat.S_ISREG(details.st_mode):
+                  raise ReceiptSecurityError(f"{path} is not a regular file")
+              if stat.S_IMODE(details.st_mode) != 0o600:
+                  raise ReceiptSecurityError(f"{path} must have mode 0600")
+
+
+          def _secure_directory(path: Path) -> None:
+              if path.exists():
+                  if path.is_symlink() or not path.is_dir():
+                      raise ReceiptSecurityError(f"{path} must be a real directory")
+                  details = path.stat()
+                  if details.st_uid != os.getuid():
+                      raise ReceiptSecurityError(f"{path} owner is not the current user")
+                  if stat.S_IMODE(details.st_mode) != 0o700:
+                      raise ReceiptSecurityError(f"{path} must have mode 0700")
+                  return
+              # Multiple dispatch processes can create the journal domain concurrently.
+              path.mkdir(parents=True, mode=0o700, exist_ok=True)
+              os.chmod(path, 0o700)
+              details = path.stat()
+              if path.is_symlink() or not path.is_dir() or details.st_uid != os.getuid():
+                  raise ReceiptSecurityError(f"{path} is not a current-user directory")
+
+
+          def _secure_open(path: Path, flags: int) -> int:
+              nofollow = getattr(os, "O_NOFOLLOW", 0)
+              try:
+                  fd = os.open(path, flags | nofollow, 0o600)
+              except OSError as exc:
+                  raise ReceiptSecurityError(f"secure open failed for {path}: {exc}") from exc
+              try:
+                  _assert_secure_fd(fd, path)
+              except Exception:
+                  os.close(fd)
+                  raise
+              return fd
+
+
+          @contextmanager
+          def secure_regular_file(
+              path: str | os.PathLike[str],
+              *,
+              binary: bool = False,
+          ) -> Iterator[IO[Any]]:
+              """Open an owner-only regular file through its validated descriptor."""
+              regular_path = Path(path)
+              fd = _secure_open(regular_path, os.O_RDONLY)
+              mode = "rb" if binary else "r"
+              try:
+                  with os.fdopen(
+                      fd,
+                      mode,
+                      **({} if binary else {"encoding": "ascii"}),
+                  ) as stream:
+                      yield stream
+              except Exception:
+                  # fdopen owns fd after successful construction.
+                  raise
+
+
+          def _rotate_locked(path: Path, max_bytes: int, retention: int) -> None:
+              if max_bytes <= 0 or retention < 0:
+                  raise ReceiptValidationError("rotation bounds must be positive")
+              if not path.exists() or path.stat().st_size < max_bytes:
+                  return
+              for index in range(retention, 0, -1):
+                  source = path.with_name(f"{path.name}.{index}")
+                  if index == retention and source.exists():
+                      source.unlink()
+                  previous = path if index == 1 else path.with_name(f"{path.name}.{index - 1}")
+                  if previous.exists():
+                      if previous.is_symlink():
+                          raise ReceiptSecurityError("rotation source cannot be a symlink")
+                      previous.replace(source)
+
+
+          def append_record(
+              path: str | os.PathLike[str],
+              record: Mapping[str, Any],
+              *,
+              max_bytes: int = 8 * 1024 * 1024,
+              retention: int = 3,
+          ) -> None:
+              """Atomically append a validated JSON line under a fixed-owner lock."""
+              validate_record(record)
+              journal = Path(path)
+              _secure_directory(journal.parent)
+              lock_path = journal.with_name(f".{journal.name}.lock")
+              lock_fd = _secure_open(lock_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
+              try:
+                  fcntl.flock(lock_fd, fcntl.LOCK_EX)
+                  if journal.is_symlink():
+                      raise ReceiptSecurityError(f"{journal} cannot be a symlink")
+                  if journal.exists():
+                      check_fd = _secure_open(journal, os.O_RDONLY)
+                      os.close(check_fd)
+                  previous_record_hash = _last_record_hash(journal)
+                  _rotate_locked(journal, max_bytes, retention)
+                  fd = _secure_open(journal, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
+                  try:
+                      stored_record = dict(record)
+                      stored_record["previous_record_hash"] = previous_record_hash
+                      stored_record["record_hash"] = _record_digest(stored_record)
+                      encoded = (
+                          json.dumps(
+                              stored_record, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+                          )
+                          + "\n"
+                      ).encode("ascii")
+                      written = os.write(fd, encoded)
+                      if written != len(encoded):
+                          raise ReceiptError("receipt append was incomplete")
+                      os.fsync(fd)
+                      if isinstance(record, dict):
+                          record["previous_record_hash"] = stored_record["previous_record_hash"]
+                          record["record_hash"] = stored_record["record_hash"]
+                  finally:
+                      os.close(fd)
+              finally:
+                  fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                  os.close(lock_fd)
+
+
+          def read_records(
+              path: str | os.PathLike[str],
+              *,
+              provider: str | None = None,
+              status: str | None = None,
+              logical_call_id: str | None = None,
+          ) -> list[dict[str, Any]]:
+              """Read and validate owner-only records with optional exact filters."""
+              journal = Path(path)
+              with secure_regular_file(journal) as stream:
+                  records = []
+                  previous_record_hash = None
+                  for line_number, line in enumerate(stream, 1):
+                      try:
+                          record = json.loads(line)
+                          validate_record(record)
+                          expected = _record_digest(record)
+                          if record["record_hash"] != expected:
+                              raise ReceiptValidationError("record hash mismatch")
+                          if (
+                              previous_record_hash is not None
+                              and record["previous_record_hash"] != previous_record_hash
+                          ):
+                              raise ReceiptValidationError("record hash chain mismatch")
+                          previous_record_hash = expected
+                      except (json.JSONDecodeError, ReceiptValidationError) as exc:
+                          raise ReceiptValidationError(
+                              f"{journal}:{line_number}: invalid receipt: {exc}"
+                          ) from exc
+                      if provider is not None and record["requested"]["provider"] != provider:
+                          continue
+                      if status is not None and record["status"] != status:
+                          continue
+                      if (
+                          logical_call_id is not None
+                          and record["logical_call_id"] != logical_call_id
+                      ):
+                          continue
+                      records.append(record)
+                  return records
+
+
+          def project_attempts(records: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+              """Pair starts and terminals; an unpaired start is explicitly unknown."""
+              ordered = sorted(records, key=lambda item: item["timestamp"])
+              by_attempt: dict[str, dict[str, Mapping[str, Any] | None]] = {}
+              for record in ordered:
+                  validate_record(record)
+                  item = by_attempt.setdefault(record["attempt_id"], {"start": None, "terminal": None})
+                  if record["event"] == "dispatch_started":
+                      if item["start"] is not None:
+                          raise ReceiptValidationError("attempt has duplicate dispatch_started records")
+                      item["start"] = record
+                  else:
+                      if item["terminal"] is not None:
+                          raise ReceiptValidationError("attempt has duplicate terminal records")
+                      item["terminal"] = record
+              projected = []
+              logical_call_indexes: Counter[str] = Counter()
+              fingerprint_dispatches: Counter[tuple[tuple[tuple[str, str], ...], str]] = Counter()
+              for attempt_id, pair in by_attempt.items():
+                  start, terminal = pair["start"], pair["terminal"]
+                  if start is None:
+                      raise ReceiptValidationError("terminal receipt has no dispatch_started record")
+                  if terminal is not None:
+                      if terminal["previous_event_id"] != start["event_id"]:
+                          raise ReceiptValidationError("terminal receipt does not link to its start")
+                      if terminal["logical_call_id"] != start["logical_call_id"]:
+                          raise ReceiptValidationError("terminal changed logical_call_id")
+                  source = terminal or start
+                  logical_call_indexes[start["logical_call_id"]] += 1
+                  fingerprint = start["fingerprint"]["value"]
+                  fingerprint_key = (tuple(sorted(start["scope"].items())), fingerprint)
+                  if fingerprint is not None:
+                      fingerprint_dispatches[fingerprint_key] += 1
+                  projected.append(
+                      {
+                          "logical_call_id": start["logical_call_id"],
+                          "attempt_id": attempt_id,
+                          "provider": start["requested"]["provider"],
+                          "outcome": terminal["status"] if terminal is not None else "outcome_unknown",
+                          "failure_class": (
+                              terminal["failure_class"] if terminal is not None else "interrupted"
+                          ),
+                          "usage": source["usage"],
+                          "retry": logical_call_indexes[start["logical_call_id"]] > 1,
+                          "exact_fingerprint_dispatch_ordinal": (
+                              fingerprint_dispatches[fingerprint_key]
+                              if fingerprint is not None
+                              else None
+                          ),
+                          "started_at": start["timestamp"],
+                          "terminal_event_id": (
+                              terminal["event_id"] if terminal is not None else None
+                          ),
+                      }
+                  )
+              return projected
+
+
+          def summarize(records: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+              attempts = project_attempts(records)
+              outcomes = Counter(item["outcome"] for item in attempts)
+              token_fields = sorted(USAGE_FIELDS)
+              sums = {field: 0 for field in token_fields}
+              known = {field: True for field in token_fields}
+              for attempt in attempts:
+                  for field in token_fields:
+                      value = attempt["usage"].get(field)
+                      if value is None:
+                          known[field] = False
+                      else:
+                          sums[field] += value
+              usage = {field: sums[field] if known[field] else None for field in token_fields}
+              retry_attempts = [item for item in attempts if item["retry"]]
+              failed_attempts = [
+                  item for item in attempts
+                  if item["outcome"] not in {"success", "outcome_unknown"}
+              ]
+              failure_counts = Counter(
+                  (item["logical_call_id"], item["failure_class"]) for item in failed_attempts
+              )
+              repeated_failures = sum(count - 1 for count in failure_counts.values())
+
+              def _known_sum(items: Sequence[Mapping[str, Any]], field: str) -> int | None:
+                  values = [item["usage"].get(field) for item in items]
+                  return (
+                      sum(values)
+                      if all(isinstance(value, int) and not isinstance(value, bool) for value in values)
+                      else None
+                  )
+
+              invalid_attempts = [
+                  item for item in attempts if item["outcome"] == "response_invalid"
+              ]
+              duplicate_exact_fingerprint_dispatches = sum(
+                  1
+                  for item in attempts
+                  if (
+                      item["exact_fingerprint_dispatch_ordinal"] is not None
+                      and item["exact_fingerprint_dispatch_ordinal"] > 1
+                  )
+              )
+              # verified: tests/test_ai_call_receipt.py covers complete/incomplete projection.
+              complete = bool(attempts) and not any(
+                  item["outcome"] == "outcome_unknown" for item in attempts
+              ) and known["input_tokens"] and known["output_tokens"]
+              return {
+                  "schema": "ai-call-receipt-summary/v1",
+                  "attempts": len(attempts),
+                  "logical_calls": len({item["logical_call_id"] for item in attempts}),
+                  "outcomes": dict(sorted(outcomes.items())),
+                  "usage": usage,
+                  "retry": {
+                      "attempts": len(retry_attempts),
+                      "total_tokens": _known_sum(retry_attempts, "total_tokens"),
+                  },
+                  "repeated_failures": repeated_failures,
+                  "invalid_output_tokens": _known_sum(invalid_attempts, "total_tokens"),
+                  "duplicate_exact_fingerprint_dispatches": duplicate_exact_fingerprint_dispatches,
+                  "cache": {
+                      "read_tokens": usage["cache_read_tokens"],
+                      "write_tokens": usage["cache_write_tokens"],
+                  },
+                  "telemetry_completeness": "complete" if complete else "incomplete",  # tests/test_ai_call_receipt.py
+              }
+
+
+          def _parser() -> argparse.ArgumentParser:
+              parser = argparse.ArgumentParser(description=__doc__)
+              subparsers = parser.add_subparsers(dest="command", required=True)
+              for command in ("query", "summary", "verify"):
+                  child = subparsers.add_parser(command)
+                  child.add_argument("journal", type=Path)
+                  child.add_argument("--provider")
+                  child.add_argument("--status")
+                  child.add_argument("--logical-call-id")
+              return parser
+
+
+          def main(argv: Sequence[str] | None = None) -> int:
+              args = _parser().parse_args(argv)
+              records = read_records(
+                  args.journal,
+                  provider=args.provider,
+                  status=args.status,
+                  logical_call_id=args.logical_call_id,
+              )
+              if args.command == "query":
+                  for record in records:
+                      print(json.dumps(record, sort_keys=True, separators=(",", ":")))
+              elif args.command == "summary":
+                  print(json.dumps(summarize(records), sort_keys=True))
+              else:
+                  project_attempts(records)
+                  print(json.dumps({"schema": SCHEMA, "valid_records": len(records)}))
+              return 0
+
+
+          if __name__ == "__main__":
+              try:
+                  raise SystemExit(main())
+              except ReceiptError as exc:
+                  print(f"ai-call-receipt: {exc}", file=sys.stderr)
+                  raise SystemExit(2)
+          # <<< VERBATIM harness/ai_call_receipt.py (sync-enforced)
+          EMBED_AI_CALL_RECEIPT
+          cat > /tmp/aiwf/harness/attempt_control.py <<'EMBED_ATTEMPT_CONTROL'
+          # >>> VERBATIM harness/attempt_control.py (sync-enforced)
+          #!/usr/bin/env python3
+          """Deterministic local-journal reuse and failed-attempt control."""
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from typing import Any, Callable, Mapping, Sequence
+
+          from ai_call_receipt import (
+              ReceiptValidationError,
+              secure_regular_file,
+              validate_scope,
+          )
+
+          ARTIFACT_SCHEMA = "governed-ai-result-artifact/v1"
+          DECISION_SCHEMA = "ai-attempt-decision/v1"
+          REVALIDATION_SCHEMA = "ai-revalidation-authorization/v1"
+          REVALIDATION_FIELDS = frozenset(
+              {
+                  "schema",
+                  "authorization_id",
+                  "objective_id",
+                  "scope",
+                  "policy_version",
+                  "expires_at",
+                  "max_attempts",
+              }
+          )
+          INFLIGHT_GRACE_SECONDS = 300
+
+
+          def _prior_attempt_references(
+              records: Sequence[Mapping[str, Any]],
+              *,
+              objective_id: str,
+              scope: Mapping[str, Any],
+          ) -> list[dict[str, Any]]:
+              """Return content-free lifecycle references for this objective and scope."""
+              governed_scope = validate_scope(scope)
+              terminals = {
+                  record.get("attempt_id"): record
+                  for record in records
+                  if record.get("event") == "attempt_terminal"
+              }
+              references = []
+              for record in records:
+                  if (
+                      record.get("event") != "dispatch_started"
+                      or record.get("scope") != governed_scope
+                      or record.get("provider_metadata", {}).get("idempotency_id")
+                      != objective_id
+                  ):
+                      continue
+                  terminal = terminals.get(record.get("attempt_id"))
+                  references.append(
+                      {
+                          "attempt_id": record.get("attempt_id"),
+                          "event_id": record.get("event_id"),
+                          "outcome": (
+                              terminal.get("status") if terminal is not None else "outcome_unknown"
+                          ),
+                          "route": record.get("requested", {}).get("route"),
+                          "fingerprint": record.get("fingerprint", {}).get("value"),
+                      }
+                  )
+              return references
+
+
+          def _revalidation_use(
+              authorization: Mapping[str, Any] | None,
+              records: Sequence[Mapping[str, Any]],
+              *,
+              objective_id: str,
+              scope: Mapping[str, Any],
+              policy_version: str,
+              now: datetime,
+              verifier: Callable[[Mapping[str, Any]], bool] | None,
+          ) -> tuple[bool, str | None, int]:
+              if authorization is None:
+                  return False, None, 0
+              if verifier is None or verifier(authorization) is not True:
+                  raise ReceiptValidationError(
+                      "revalidation authorization has no trusted verifier"
+                  )
+              if not isinstance(authorization, Mapping) or set(authorization) != REVALIDATION_FIELDS:
+                  raise ReceiptValidationError("revalidation authorization has an invalid schema")
+              governed_scope = validate_scope(scope)
+              if (
+                  authorization["schema"] != REVALIDATION_SCHEMA
+                  or authorization["objective_id"] != objective_id
+                  or authorization["scope"] != governed_scope
+                  or authorization["policy_version"] != policy_version
+              ):
+                  raise ReceiptValidationError(
+                      "revalidation authorization is not bound to this objective, scope and policy"
+                  )
+              authorization_id = authorization["authorization_id"]
+              if (
+                  not isinstance(authorization_id, str)
+                  or not authorization_id
+                  or len(authorization_id) > 256
+              ):
+                  raise ReceiptValidationError("authorization_id must be a bounded opaque string")
+              max_attempts = authorization["max_attempts"]
+              if (
+                  not isinstance(max_attempts, int)
+                  or isinstance(max_attempts, bool)
+                  or max_attempts < 1
+                  or max_attempts > 100
+              ):
+                  raise ReceiptValidationError("max_attempts must be between 1 and 100")
+              try:
+                  expires_at = datetime.fromisoformat(authorization["expires_at"])
+              except (TypeError, ValueError) as exc:
+                  raise ReceiptValidationError("expires_at must be an ISO-8601 timestamp") from exc
+              if expires_at.tzinfo is None or expires_at <= now:
+                  raise ReceiptValidationError("revalidation authorization is expired")
+              uses = sum(
+                  1
+                  for record in records
+                  if (
+                      record.get("event") == "dispatch_started"
+                      and record.get("scope") == governed_scope
+                      and record.get("provider_metadata", {}).get("idempotency_id") == objective_id
+                      and record.get("provider_metadata", {}).get("revalidation_grant_id")
+                      == authorization_id
+                  )
+              )
+              return uses < max_attempts, authorization_id, uses
+
+
+          def verify_result_artifact(
+              pointer: str | os.PathLike[str],
+              *,
+              fingerprint: str,
+              scope: Mapping[str, Any],
+              policy_version: str,
+          ) -> str:
+              """Return a governed result path only when pointer, scope and bytes verify."""
+              pointer_path = Path(pointer)
+              with secure_regular_file(pointer_path) as stream:
+                  metadata = json.load(stream)
+              allowed = {
+                  "schema", "fingerprint", "scope", "policy_version", "result_path",
+                  "result_sha256", "revoked",
+              }
+              if not isinstance(metadata, dict) or set(metadata) != allowed:
+                  raise ReceiptValidationError("result artifact pointer has an invalid schema")
+              if (
+                  metadata["schema"] != ARTIFACT_SCHEMA
+                  or metadata["fingerprint"] != fingerprint
+                  or metadata["scope"] != validate_scope(scope)
+                  or metadata["policy_version"] != policy_version
+                  or metadata["revoked"] is not False
+              ):
+                  raise ReceiptValidationError("result artifact is not authorized for this call")
+              relative_result = Path(metadata["result_path"])
+              if relative_result.is_absolute() or ".." in relative_result.parts:
+                  raise ReceiptValidationError("result_path must be relative and cannot traverse")
+              result_path = pointer_path.parent / relative_result
+              digest = hashlib.sha256()
+              with secure_regular_file(result_path, binary=True) as stream:
+                  for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                      digest.update(chunk)
+              if digest.hexdigest() != metadata["result_sha256"]:
+                  raise ReceiptValidationError("result artifact integrity check failed")
+              return str(result_path)
+
+
+          def decide_attempt(
+              records: Sequence[Mapping[str, Any]],
+              *,
+              fingerprint: str | None,
+              objective_id: str,
+              route: str,
+              scope: Mapping[str, Any],
+              policy_version: str,
+              failure_ceiling: int,
+              artifact_pointer: str | os.PathLike[str] | None = None,
+              revalidation_authorization: Mapping[str, Any] | None = None,
+              revalidation_verifier: Callable[[Mapping[str, Any]], bool] | None = None,
+              now: datetime | None = None,
+          ) -> dict[str, Any]:
+              """Decide reuse, block, or dispatch from immutable local receipt facts.
+
+              Failure budget is objective-wide: changing route never resets it.
+              """
+              if not objective_id or failure_ceiling < 1:
+                  raise ReceiptValidationError("objective_id and positive failure_ceiling required")
+              governed_scope = validate_scope(scope)
+              prior_attempts = _prior_attempt_references(
+                  records, objective_id=objective_id, scope=governed_scope
+              )
+              has_successful_exact_match = False
+              objective_attempts: dict[str, dict[str, Any]] = {}
+              for record in records:
+                  if (
+                      record.get("status") == "success"
+                      and record.get("fingerprint", {}).get("value") == fingerprint
+                      and record.get("scope") == governed_scope
+                  ):
+                      has_successful_exact_match = True
+                  metadata = record.get("provider_metadata", {})
+                  # objective_id is an opaque, caller-governed id carried in idempotency_id.
+                  if metadata.get("idempotency_id") != objective_id:
+                      continue
+                  attempt_id = record.get("attempt_id")
+                  if not isinstance(attempt_id, str):
+                      continue
+                  lifecycle = objective_attempts.setdefault(attempt_id, {})
+                  if record.get("event") == "dispatch_started":
+                      lifecycle["started"] = record
+                  elif record.get("event") in {"attempt_terminal", "dispatch_blocked"}:
+                      lifecycle["terminal"] = record
+
+              decision_time = now or datetime.now(timezone.utc)
+              objective_failures = 0
+              for lifecycle in objective_attempts.values():
+                  terminal = lifecycle.get("terminal")
+                  if terminal is not None:
+                      if terminal.get("status") != "success":
+                          objective_failures += 1
+                      continue
+                  started = lifecycle.get("started")
+                  if started is None:
+                      continue
+                  try:
+                      started_at = datetime.fromisoformat(started["timestamp"])
+                  except (KeyError, TypeError, ValueError):
+                      # Missing time cannot prove that work is still live, so fail closed.
+                      objective_failures += 1
+                      continue
+                  if started_at.tzinfo is None:
+                      objective_failures += 1
+                      continue
+                  if (decision_time - started_at).total_seconds() >= INFLIGHT_GRACE_SECONDS:
+                      objective_failures += 1
+
+              if has_successful_exact_match and artifact_pointer is not None and fingerprint is not None:
+                  result = verify_result_artifact(
+                      artifact_pointer,
+                      fingerprint=fingerprint,
+                      scope=governed_scope,
+                      policy_version=policy_version,
+                  )
+                  return {
+                      "schema": DECISION_SCHEMA, "action": "reuse", "reason": "exact_governed_result",
+                      "result_path": result, "route": route, "prior_attempts": prior_attempts,
+                  }
+
+              authorized, authorization_id, authorization_uses = _revalidation_use(
+                  revalidation_authorization,
+                  records,
+                  objective_id=objective_id,
+                  scope=governed_scope,
+                  policy_version=policy_version,
+                  now=decision_time,
+                  verifier=revalidation_verifier,
+              )
+              if objective_failures >= failure_ceiling and not authorized:
+                  return {
+                      "schema": DECISION_SCHEMA, "action": "block",
+                      "reason": "objective_failure_ceiling", "failure_count": objective_failures,
+                      "route": route, "prior_attempts": prior_attempts,
+                  }
+              decision = {
+                  "schema": DECISION_SCHEMA, "action": "dispatch",
+                  "reason": "no_reusable_governed_result",
+                  "failure_count": max(objective_failures, 0), "route": route,
+                  "prior_attempts": prior_attempts,
+              }
+              if objective_failures >= failure_ceiling:
+                  decision["revalidation_authorization"] = {
+                      "authorization_id": authorization_id,
+                      "uses": authorization_uses,
+                      "max_attempts": revalidation_authorization["max_attempts"],
+                  }
+                  decision["receipt_provider_metadata"] = {
+                      "revalidation_grant_id": authorization_id,
+                  }
+              return decision
+          # <<< VERBATIM harness/attempt_control.py (sync-enforced)
+          EMBED_ATTEMPT_CONTROL
+          mkdir -p /tmp/ai-call-receipts
+          chmod 700 /tmp/ai-call-receipts
           cat > /tmp/aiwf/harness/deepseek_run.py <<'EMBED_DEEPSEEK_RUN'
           # Minimal shim of harness/deepseek_run.py — just what ai_review.py
           # imports. Both regions below are verbatim substrings of the SSOT.
@@ -466,13 +1898,28 @@ jobs:
           import time
           import urllib.error
           import urllib.request
+          import uuid
           from pathlib import Path
+          from typing import Callable, TypeVar
 
           sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # harness/
 
           import certifi
           from dispatch_scrub import ScrubError, scrub_payload
           from deepseek_run import _extract_message  # the estate's defensive envelope parser
+          from ai_call_receipt import (
+              ReceiptError,
+              append_record,
+              classify_transport_failure,
+              default_journal_path,
+              fingerprint_input,
+              finish_attempt,
+              normalized_usage,
+              scope_from_env,
+              start_attempt,
+              summarize,
+              unknown_cost,
+          )
 
           _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
@@ -513,6 +1960,164 @@ jobs:
           # PRs, silently starving the independent-review quorum.
           DIFF_CHAR_LIMITS = {"kimi": 16_000}
           DEFAULT_DIFF_CHAR_LIMIT = 150_000
+          _T = TypeVar("_T")
+
+          # Retry policy for transient provider weather (429 / 5xx / transport).
+          # Sized against the chain, not against one call: 7+ calls per PR (4 primary,
+          # 2 cross, 1 final) at up to 120s timeout each. Worst case added latency is
+          # _RETRY_TOTAL_SLEEP_CAP per call, so the whole chain can grow by at most
+          # ~7 * 15s = 105s — comfortably inside the job budget, which is why the cap
+          # exists at all. Raising these without re-checking that arithmetic swaps a
+          # 429 failure for a timeout failure.
+          _RETRY_ATTEMPTS = 4
+          _RETRY_MAX_SLEEP = 8.0
+          _RETRY_TOTAL_SLEEP_CAP = 15.0
+
+
+          def _retry_after_seconds(exc: Exception) -> float | None:
+              """Seconds from a Retry-After header, or None when absent/unusable.
+
+              Only the delta-seconds form is honoured. The HTTP-date form is legal but
+              needs a trusted clock and timezone parse to be safe, and getting that
+              subtly wrong would sleep for hours on a required check — declining to
+              parse it is the conservative read, not an oversight.
+              """
+              headers = getattr(exc, "headers", None)
+              raw = headers.get("Retry-After") if headers is not None else None
+              if raw is None:
+                  return None
+              try:
+                  seconds = float(str(raw).strip())
+              except (TypeError, ValueError):
+                  return None
+              return seconds if seconds >= 0 else None
+
+
+          def _receipt_journal() -> Path:
+              return default_journal_path()
+
+
+          def _receipt_scope() -> dict[str, str]:
+              return scope_from_env(
+                  surface="ci-review", delivery_unit="ai-review", environment="ci"
+              )
+
+
+          def _receipt_fingerprint_input(provider: str, route: str, model: str) -> dict:
+              return fingerprint_input(
+                  template_version="ai-review/v1",
+                  tool_schema_version="chat-completions/v1",
+                  route_config_version=f"{provider}/{route}/{model}",
+              )
+
+
+          def _provider_metadata(response: object, http_status: int | None) -> dict:
+              metadata: dict[str, object] = {}
+              if http_status is not None:
+                  metadata["http_status"] = http_status
+              if not isinstance(response, dict):
+                  return metadata
+              if isinstance(response.get("id"), str):
+                  metadata["response_id"] = response["id"]
+              choices = response.get("choices")
+              first = choices[0] if isinstance(choices, list) and choices else None
+              if isinstance(first, dict) and isinstance(first.get("finish_reason"), str):
+                  metadata["finish_reason"] = first["finish_reason"]
+              return metadata
+
+
+          def _failure_class(exc: Exception) -> str:
+              return classify_transport_failure(
+                  exc, invalid_exceptions=(ValueError, RuntimeError)
+              )
+
+
+          def _append_terminal(
+              started: dict,
+              *,
+              provider: str,
+              route: str,
+              requested_model: str,
+              status: str,
+              response: object = None,
+              actual_model: str | None = None,
+              failure_class: str | None = None,
+              http_status: int | None = None,
+          ) -> None:
+              if actual_model is None and isinstance(response, dict):
+                  candidate = response.get("model")
+                  actual_model = candidate if isinstance(candidate, str) and candidate else None
+              finish_attempt(
+                  _receipt_journal(),
+                  started,
+                  actual_provider=provider,
+                  actual_route=route,
+                  actual_model=actual_model,
+                  status=status,
+                  failure_class=failure_class,
+                  usage=normalized_usage(response),
+                  cost_estimate=unknown_cost(
+                      price_source=f"{provider}-pricing",
+                      price_version="unconfigured/v1",
+                  ),
+                  provider_metadata=_provider_metadata(response, http_status),
+              )
+
+
+          def _receipted_attempt(
+              *,
+              provider: str,
+              route: str,
+              requested_model: str,
+              send: Callable[[], tuple[object, int | None]],
+              parse: Callable[[object], _T],
+              extract_actual_model: Callable[[object, _T], str | None],
+              logical_call_id: str | None = None,
+          ) -> _T:
+              try:
+                  started = start_attempt(
+                      _receipt_journal(),
+                      requested_provider=provider,
+                      requested_route=route,
+                      requested_model=requested_model,
+                      scope=_receipt_scope(),
+                      fingerprint=_receipt_fingerprint_input(provider, route, requested_model),
+                      logical_call_id=logical_call_id,
+                      writer=append_record,
+                  )
+              except ReceiptError as exc:
+                  raise RuntimeError(f"could not record AI call before dispatch: {exc}") from exc
+
+              response: object = None
+              http_status: int | None = None
+              try:
+                  response, http_status = send()
+                  parsed = parse(response)
+              except Exception as exc:
+                  _append_terminal(
+                      started,
+                      provider=provider,
+                      route=route,
+                      requested_model=requested_model,
+                      status="response_invalid"
+                      if _failure_class(exc) == "response_invalid"
+                      else "failed",
+                      response=response,
+                      failure_class=_failure_class(exc),
+                      http_status=getattr(exc, "code", http_status),
+                  )
+                  raise
+              _append_terminal(
+                  started,
+                  provider=provider,
+                  route=route,
+                  requested_model=requested_model,
+                  status="success",
+                  response=response,
+                  actual_model=extract_actual_model(response, parsed),
+                  http_status=http_status,
+              )
+              return parsed
 
 
           def _bounded_diff(raw: str, provider: str) -> str:
@@ -528,32 +2133,134 @@ jobs:
               )
 
 
-          def _post_with_retry(url: str, payload: dict, key: str, timeout: float) -> dict:
-              """POST with one backoff retry on 429/5xx — mirrors deepseek_run's policy."""
+          def _record_dispatch_blocked(provider: str, model: str) -> None:
+              started = start_attempt(
+                  _receipt_journal(),
+                  requested_provider=provider,
+                  requested_route="chat-completions",
+                  requested_model=model,
+                  scope=_receipt_scope(),
+                  fingerprint=_receipt_fingerprint_input(
+                      provider, "chat-completions", model
+                  ),
+              )
+              finish_attempt(
+                  _receipt_journal(),
+                  started,
+                  status="dispatch_blocked",
+                  failure_class="scrub_blocked",
+                  actual_provider=provider,
+                  actual_route="chat-completions",
+                  actual_model=model,
+                  cost_estimate=unknown_cost(
+                      price_source=f"{provider}-pricing",
+                      price_version="unconfigured/v1",
+                  ),
+                  event="dispatch_blocked",
+              )
+
+
+          def _post_with_retry(
+              url: str,
+              payload: dict,
+              key: str,
+              timeout: float,
+              *,
+              provider: str | None = None,
+              parse: Callable[[object], _T] = lambda response: response,
+              extract_actual_model: Callable[[object, _T], str | None] = (
+                  lambda response, _parsed: (
+                      response.get("model")
+                      if isinstance(response, dict)
+                      and isinstance(response.get("model"), str)
+                      else None
+                  )
+              ),
+          ) -> _T:
+              """POST with bounded exponential backoff on 429/5xx and transport errors.
+
+              Widened from 2 attempts / 1s on 2026-07-28. A single Kimi
+              ``engine_overloaded_error`` 429 hard-failed agent-claude#85's required
+              check; the identical rerun passed, so the outage was transient and the
+              retry policy was simply too thin to absorb it. A required check that goes
+              red on provider weather is a false signal in exactly the way the
+              2026-07-23 quorum starvation was — it says "the review found a problem"
+              when it means "the review could not be attempted".
+
+              Bounded on purpose. The chain makes 7+ calls (4 primary, 2 cross, 1 final),
+              so unbounded backoff would trade a 429 failure for a job timeout, which is
+              not a fix. ``_RETRY_TOTAL_SLEEP_CAP`` is the ceiling on cumulative sleep
+              for ONE call; once spent, the next failure raises instead of sleeping.
+              Retry-After is honoured when the provider sends it — the provider knows
+              its own recovery window better than a fixed schedule does — but it is
+              clamped to the same cap so a hostile or mistaken header cannot stall the
+              job.
+              """
               data = json.dumps(payload).encode()
+              provider = provider or next(
+                  (
+                      name
+                      for name, config in PROVIDERS.items()
+                      if config["url"] == url
+                  ),
+                  "unknown",
+              )
+              requested_model = str(payload.get("model") or "unknown")
               last: Exception | None = None
               delay = 1.0
-              for attempt in range(2):
+              slept = 0.0
+              logical_call_id = "call_" + uuid.uuid4().hex
+
+              def _backoff(exc: Exception) -> bool:
+                  """Sleep before the next attempt; False means the budget is spent."""
+                  nonlocal delay, slept
+                  wait = min(delay, _RETRY_MAX_SLEEP)
+                  hinted = _retry_after_seconds(exc)
+                  if hinted is not None:
+                      wait = min(hinted, _RETRY_MAX_SLEEP)
+                  if slept + wait > _RETRY_TOTAL_SLEEP_CAP:
+                      return False
+                  time.sleep(wait)
+                  slept += wait
+                  delay *= 2
+                  return True
+
+              for attempt in range(_RETRY_ATTEMPTS):
                   req = urllib.request.Request(
                       url,
                       data=data,
                       headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
                   )
                   try:
-                      with urllib.request.urlopen(req, timeout=timeout, context=_SSL_CTX) as resp:
-                          return json.loads(resp.read().decode("utf-8", errors="replace"))
+                      def send() -> tuple[object, int | None]:
+                          with urllib.request.urlopen(
+                              req, timeout=timeout, context=_SSL_CTX
+                          ) as resp:
+                              status = getattr(resp, "status", None)
+                              return (
+                                  json.loads(resp.read().decode("utf-8", errors="replace")),
+                                  status if isinstance(status, int) else None,
+                              )
+
+                      result = _receipted_attempt(
+                          provider=provider,
+                          route="chat-completions",
+                          requested_model=requested_model,
+                          send=send,
+                          parse=parse,
+                          extract_actual_model=extract_actual_model,
+                          logical_call_id=logical_call_id,
+                      )
+                      return result
                   except urllib.error.HTTPError as e:
                       last = e
-                      if attempt == 0 and (e.code == 429 or 500 <= e.code < 600):
-                          time.sleep(delay)
-                          delay *= 2
+                      retryable = e.code == 429 or 500 <= e.code < 600
+                      if retryable and attempt + 1 < _RETRY_ATTEMPTS and _backoff(e):
                           continue
                       raise
                   except urllib.error.URLError as e:
                       last = e
-                      if attempt == 0:
-                          time.sleep(delay)
-                          delay *= 2
+                      if attempt + 1 < _RETRY_ATTEMPTS and _backoff(e):
                           continue
                       raise
               raise RuntimeError(f"unreachable retry state: {last}")
@@ -565,14 +2272,60 @@ jobs:
               global endpoint's missing 'kimi-latest' alias, same day). Exact prefs
               first, then newest id matching prefix (datecoded ids sort ascending),
               then any available id, then the fallback."""
+              provider = next(
+                  (
+                      name
+                      for name, config in PROVIDERS.items()
+                      if models_url.startswith(config["url"].rsplit("/", 2)[0])
+                  ),
+                  "unknown",
+              )
               try:
-                  mreq = urllib.request.Request(models_url, headers={"Authorization": "Bearer " + key})
-                  with urllib.request.urlopen(mreq, timeout=60, context=_SSL_CTX) as resp:
-                      have = {m["id"] for m in json.loads(resp.read())["data"]}
-                  model = next((p for p in prefs if p in have), None)
-                  if model is None:
-                      prefixed = sorted((m for m in have if m.startswith(prefix)), reverse=True)
-                      model = prefixed[0] if prefixed else (sorted(have)[0] if have else fallback)
+                  mreq = urllib.request.Request(
+                      models_url, headers={"Authorization": "Bearer " + key}
+                  )
+
+                  def send() -> tuple[object, int | None]:
+                      with urllib.request.urlopen(
+                          mreq, timeout=60, context=_SSL_CTX
+                      ) as resp:
+                          status = getattr(resp, "status", None)
+                          return (
+                              json.loads(resp.read().decode("utf-8", errors="replace")),
+                              status if isinstance(status, int) else None,
+                          )
+
+                  def select(response: object) -> str:
+                      if not isinstance(response, dict) or not isinstance(
+                          response.get("data"), list
+                      ):
+                          raise ValueError("model discovery returned an invalid response")
+                      have = {
+                          item["id"]
+                          for item in response["data"]
+                          if isinstance(item, dict) and isinstance(item.get("id"), str)
+                      }
+                      selected = next((preferred for preferred in prefs if preferred in have), None)
+                      if selected is None:
+                          prefixed = sorted(
+                              (available for available in have if available.startswith(prefix)),
+                              reverse=True,
+                          )
+                          selected = (
+                              prefixed[0]
+                              if prefixed
+                              else (sorted(have)[0] if have else fallback)
+                          )
+                      return selected
+
+                  model = _receipted_attempt(
+                      provider=provider,
+                      route="models",
+                      requested_model=fallback,
+                      send=send,
+                      parse=select,
+                      extract_actual_model=lambda _response, selected: selected,
+                  )
                   print(f"model discovery: using {model}")
                   return model
               except Exception as e:  # noqa: BLE001 — any discovery failure means: use the fallback
@@ -649,6 +2402,7 @@ jobs:
               try:
                   scrub = scrub_payload(prompt, provider=args.provider, model=model)
               except ScrubError as exc:
+                  _record_dispatch_blocked(args.provider, model)
                   print(f"::warning::dispatch scrub could not run — refusing to send diff to {display}: {exc}")
                   return 0
               sanitization_receipt = ""
@@ -666,6 +2420,7 @@ jobs:
                   print(f"dispatch scrub redacted {len(scrub.redactions)} value(s) — "
                         f"review proceeds on sanitized text: {'; '.join(scrub.redactions)}")
               elif scrub.blocked:
+                  _record_dispatch_blocked(args.provider, model)
                   print(f"::warning::dispatch scrub blocked this diff — no {display} review: {'; '.join(scrub.reasons)}")
                   return 0
 
@@ -688,8 +2443,14 @@ jobs:
                   payload["max_tokens"] = 1200
 
               try:
-                  out = _post_with_retry(p["url"], payload, key, p["timeout"])
-                  review, usage, _model = _extract_message(out, model)
+                  review, usage, _model = _post_with_retry(
+                      p["url"],
+                      payload,
+                      key,
+                      p["timeout"],
+                      provider=args.provider,
+                      parse=lambda out: _extract_message(out, model),
+                  )
               except urllib.error.HTTPError as e:
                   # Surface status + API error message (never the key) so a dead model
                   # name or exhausted quota is diagnosable from the log.
@@ -820,7 +2581,15 @@ jobs:
               return slices
 
 
-          def _diff_slices(diff: str, max_chars: int = 12_000) -> list[str]:
+          # moonshot-v1-8k is the LIVE Kimi reviewer (reviewer-key-health). Its window is
+          # 8,192 tokens total (prompt + max_tokens). The specialist prompt + system
+          # instruction + a 12k-char slice produced HTTP 400 "requested: 9653" on
+          # PR #327 (corpus-recovery). Bound slices so prompt+600 completion fits 8k.
+          # DeepSeek/OpenAI tolerate the same bound; more slices, same byte coverage.
+          _KIMI_SAFE_SLICE_CHARS = 3_500
+
+
+          def _diff_slices(diff: str, max_chars: int = _KIMI_SAFE_SLICE_CHARS) -> list[str]:
               """Partition by complete files/hunks; contract: tests/test_validator_chain.py."""
               files = [c for c in re.split(r"(?=^diff --git )", diff, flags=re.MULTILINE) if c]
               if not files:
@@ -923,6 +2692,24 @@ jobs:
               return payload
 
 
+          def _kimi_output_budget(prompt: str, requested: int) -> int:
+              """Keep prompt+max_tokens inside moonshot-v1-8k's 8192 combined window.
+
+              Measured on PR #327: cross-validation packets at ~8107 input tokens left
+              only ~85 completion tokens, so finish_reason=length truncated JSON and the
+              larger adaptive budget made the squeeze worse.
+              """
+              # Mixed code/JSON prompts tokenize denser than English prose.
+              est_input = max(1, len(prompt) // 3)
+              room = 8192 - est_input - 32
+              if room < 64:
+                  raise RuntimeError(
+                      f"kimi prompt too large for moonshot-v1-8k "
+                      f"(est_input={est_input} chars={len(prompt)})"
+                  )
+              return min(requested, room)
+
+
           def _call(provider: str, prompt: str, budgets: tuple[int, int]) -> tuple[dict, dict, str]:
               cfg = ai_review.PROVIDERS[provider]
               key = os.environ.get(cfg["key_env"], "")
@@ -939,26 +2726,49 @@ jobs:
                   raise RuntimeError("dispatch scrub blocked validation payload")
 
               last: Exception | None = None
-              for budget in budgets:
-                  try:
-                      out = ai_review._post_with_retry(
-                          cfg["url"], _payload(provider, model, prompt, budget), key, cfg["timeout"]
-                      )
-                      text, usage, actual_model = _extract_message(out, model)
-                      return _json_object(text), usage, actual_model
-                  except ValueError as exc:
-                      # Malformed structured output is exactly what the second adaptive
-                      # budget is for; JSON mode reduces it but providers may still fail.
-                      last = exc
-                  except RuntimeError as exc:
-                      last = exc
-                      if "empty" not in str(exc).lower() and "json" not in str(exc).lower():
-                          raise
-                  except urllib.error.HTTPError as exc:
-                      detail = exc.read()[:500].decode(errors="replace")
-                      raise RuntimeError(
-                          f"{provider} HTTP {exc.code} model={model} budget={budget}: {detail}"
-                      ) from exc
+              # Kimi: if the first attempt truncates, shrink the prompt — do not ask for
+              # a larger completion budget inside an already-full 8k window.
+              kimi_prompts = [prompt]
+              if provider == "kimi" and len(prompt) > 6_000:
+                  kimi_prompts.append(prompt[:6_000] + "\n…[truncated for moonshot-v1-8k]")
+
+              for attempt_prompt in kimi_prompts if provider == "kimi" else [prompt]:
+                  for budget in budgets:
+                      if provider == "kimi":
+                          try:
+                              budget = _kimi_output_budget(attempt_prompt, budget)
+                          except RuntimeError as exc:
+                              last = exc
+                              break
+                      try:
+                          result = ai_review._post_with_retry(
+                              cfg["url"],
+                              _payload(provider, model, attempt_prompt, budget),
+                              key,
+                              cfg["timeout"],
+                              provider=provider,
+                              parse=lambda out: (
+                                  lambda extracted: (
+                                      _json_object(extracted[0]),
+                                      extracted[1],
+                                      extracted[2],
+                                  )
+                              )(_extract_message(out, model)),
+                          )
+                          return result
+                      except ValueError as exc:
+                          # Malformed structured output is exactly what the second adaptive
+                          # budget is for; JSON mode reduces it but providers may still fail.
+                          last = exc
+                      except RuntimeError as exc:
+                          last = exc
+                          if "empty" not in str(exc).lower() and "json" not in str(exc).lower():
+                              raise
+                      except urllib.error.HTTPError as exc:
+                          detail = exc.read()[:500].decode(errors="replace")
+                          raise RuntimeError(
+                              f"{provider} HTTP {exc.code} model={model} budget={budget}: {detail}"
+                          ) from exc
               raise RuntimeError(
                   f"{provider} model={model} exhausted adaptive output budgets: {last}"
               )
@@ -976,7 +2786,15 @@ jobs:
                   "reject merely because a file is new or allegedly unreviewed. This is one "
                   "changed-diff slice, not the repository inventory: never infer that an "
                   "unchanged import, module, function, or dependency is absent merely because "
-                  "it is not defined in this slice. A slice marked changed_file_complete=false "
+                  "it is not defined in this slice. Lines prefixed '-' and files whose new path "
+                  "is /dev/null are removed from the proposed head: they cannot evidence a "
+                  "current secret exposure, executable path, or active trigger. Comments are "
+                  "not runtime behavior; when stale commentary conflicts with executable "
+                  "final-state workflow logic, judge the executable logic. The exact reusable "
+                  "caller Amplified-Partners/amplified-fleet-config/.github/workflows/"
+                  "ai-review-reusable.yml@main is the architect-authorized estate contract, "
+                  "not unpinned third-party supply-chain drift. A slice marked "
+                  "changed_file_complete=false "
                   "is an overlapping partial-file excerpt: never claim a symbol, branch, "
                   "check, field, or function is unused, absent, unreachable, or unenforced "
                   "unless the shown lines alone prove the behavior without relying on omitted "
@@ -1029,19 +2847,26 @@ jobs:
               head: str,
           ) -> dict:
               rejected = [r for r in primary if r["verdict"] == "REJECT"]
+              # Cap excerpt size for the cross dossier. moonshot-v1-8k cross calls on
+              # PR #327 hit finish_reason=length at 8107 input / 85 output when excerpts
+              # used the 12k primary-slice bound.
+              excerpt_limit = 1_500 if provider == "kimi" else 12_000
               packet = {
                   "head_sha": head,
                   "peer_provider": peer,
                   "receipts": [r["receipt"] for r in primary],
                   "verdicts": [r["verdict"] for r in primary],
-                  "findings": [f for r in primary for f in r["findings"]],
+                  # Only rejections need finding text; APPROVE rows are receipt+verdict.
+                  "findings": [f for r in rejected for f in r["findings"]],
                   "deterministic_checks": deterministic,
                   "source_slices": [
                       {
                           "slice_index": r["slice_index"],
-                          "text": _evidence_excerpt(slices[r["slice_index"]], r["findings"]),
+                          "text": _evidence_excerpt(
+                              slices[r["slice_index"]], r["findings"], limit=excerpt_limit
+                          ),
                       }
-                      for r in rejected
+                      for r in rejected[:8]  # hard cap: cross is a check, not a reprint
                   ],
                   "review_contract": {
                       "diff_is_not_repository_inventory": True,
@@ -1064,7 +2889,14 @@ jobs:
                   "of syntax errors, broken tests, or impossible runtime behavior unless the "
                   "finding proves that check does not cover the cited path. Reject claims about "
                   "truncated excerpt boundaries, transport redaction sentinels, or a file "
-                  "merely being new. Clear any claim that an unchanged dependency is missing "
+                  "merely being new. A removed '-' line or a deleted file cannot prove current-"
+                  "head exposure or behavior; clear findings whose evidence exists only in "
+                  "deleted content. Comments do not override executable final-state behavior; "
+                  "clear a stale-comment objection when the shown active logic contradicts it. "
+                  "The exact Amplified-Partners/amplified-fleet-config/.github/workflows/"
+                  "ai-review-reusable.yml@main reference is the authorized governed estate "
+                  "contract; clear generic untrusted/unpinned supply-chain objections to it. "
+                  "Clear any claim that an unchanged dependency is missing "
                   "only because it is absent from the diff slice. For a source slice marked "
                   "changed_file_complete=false, clear claims that a symbol, branch, check, "
                   "field, or function is unused, absent, unreachable, or unenforced unless "
@@ -1315,6 +3147,7 @@ jobs:
           # so the check went green while quorum silently starved. The default is
           # now a live model; this var makes the next rename a variable change.
           DEEPSEEK_REVIEW_MODEL: ${{ vars.DEEPSEEK_REVIEW_MODEL }}
+          AI_CALL_RECEIPT_JOURNAL: /tmp/ai-call-receipts/receipts.jsonl
         # Scrubbed transport: seat-contract dispatch scrub (fail-closed => no
         # review, ::warning), 429/5xx retry, defensive envelope parsing,
         # token receipts. SSOT: harness/scripts/ai_review.py.
@@ -1325,6 +3158,14 @@ jobs:
           else
             python3 /tmp/aiwf/harness/scripts/ai_review.py --provider "${{ inputs.provider }}" --diff /tmp/pr_diff.txt --total-bytes-file /tmp/pr_diff_total_bytes.txt --out /tmp/review.json
           fi
+      - name: upload content-free AI call receipts
+        if: always() && steps.applicability.outputs.skip != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ai-call-receipts-${{ inputs.provider }}-${{ github.run_attempt }}
+          path: /tmp/ai-call-receipts/receipts.jsonl
+          if-no-files-found: warn
+          retention-days: 14
       - name: submit review (review-only, never approve)
         if: steps.applicability.outputs.skip != 'true'
         env:
