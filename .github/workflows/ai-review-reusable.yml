@@ -35,6 +35,7 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       AI_OBJECTIVE_ID: ${{ github.repository }}:${{ github.event.pull_request.number || github.run_id }}:${{ inputs.provider }}
     steps:
@@ -2509,15 +2510,131 @@ jobs:
               raise SystemExit(main())
           # <<< VERBATIM harness/scripts/ai_review.py (sync-enforced)
           EMBED_AI_REVIEW
+          cat > /tmp/aiwf/harness/scripts/review_skills.py <<'EMBED_REVIEW_SKILLS'
+          # >>> VERBATIM harness/scripts/review_skills.py (sync-enforced)
+          #!/usr/bin/env python3
+          """Versioned specialist review-skill charters.
+
+          SSOT for the text is harness/review-skills/<name>.md — one artifact per
+          skill, Codex-validated (receipts beside them, bound to each charter's
+          sha256). This module is the mirror the self-contained review workflow
+          embeds: caller repos cannot read the vault's artifact files at runtime, so
+          the charters travel inside the embed. tests/test_review_skills.py pins this
+          mirror byte-exact to the artifacts and refuses any charter without a
+          matching PASS receipt.
+
+          Derivation: docs/research/2026-07-29__review-skill-decomposition__research-
+          conclusion.md (research-pipe sourced). Provider assignment puts the deep
+          semantic lenses on DeepSeek's long-context budget and the checklist-shaped
+          lenses on Kimi's bounded slices.
+          """
+
+          SKILLS_SCHEMA = "review-skill/v1"
+
+          # moonshot-v1-8k guard: fixed primary-prompt prefix (~2.6k chars) + charter +
+          # 3,500-char slice + framing must stay under the 8,000-char pre-dispatch cap
+          # enforced by validator_chain._kimi_output_budget.
+          CHARTER_MAX_CHARS = 700
+
+          SPECIALTIES = {
+              "deepseek": (
+                  "correctness-reliability",
+                  "security-boundaries",
+                  "performance-efficiency",
+              ),
+              "kimi": (
+                  "test-adequacy",
+                  "maintainability-contracts",
+                  "governance-five-rods",
+              ),
+          }
+
+          CHARTERS = {
+              # SSOT: harness/review-skills/correctness-reliability.md
+              "correctness-reliability": (
+                  "Hunt defects where the changed code's actual behavior diverges from its "
+                  "evident intent: wrong boundary or off-by-one conditions, inverted or "
+                  "incomplete predicates, unhandled None/null/empty/error states, swallowed "
+                  "exceptions, misuse of a called API's documented contract, and races or "
+                  "ordering hazards introduced by the change. Judge only demonstrable "
+                  "behavior: a blocking finding must name the concrete input or state that "
+                  "produces the wrong result on the shown lines. Style, taste, and "
+                  "hypothetical robustness concerns are not correctness defects."
+              ),
+              # SSOT: harness/review-skills/security-boundaries.md
+              "security-boundaries": (
+                  "Hunt concrete exploitable paths introduced or exposed by the changed "
+                  "lines: injection (SQL, shell, template, path), missing or weakened "
+                  "authentication or authorization checks, secrets or tokens written into "
+                  "code, logs, or artifacts, unsafe deserialization or evaluation of "
+                  "untrusted data, SSRF, cryptographic misuse, and validation dropped at a "
+                  "trust boundary. A blocking finding must trace attacker-controlled data to "
+                  "the dangerous sink within the shown lines. Generic hardening advice and "
+                  "hypothetical compromised-credential arguments are not defects."
+              ),
+              # SSOT: harness/review-skills/performance-efficiency.md
+              "performance-efficiency": (
+                  "Hunt resource-behavior regressions demonstrable from the diff: algorithmic "
+                  "complexity jumps on plausibly large inputs (nested scans replacing "
+                  "lookups), per-item I/O or queries inside loops, unbounded growth of "
+                  "memory, queues, retries, or files, missing timeout, pagination, or backoff "
+                  "on external calls, and leaked handles, connections, or subprocesses. A "
+                  "blocking finding must state the scale at which the shown code degrades and "
+                  "why the shown lines cause it. Micro-optimizations and unmeasured style "
+                  "preferences are not defects."
+              ),
+              # SSOT: harness/review-skills/test-adequacy.md
+              "test-adequacy": (
+                  "Hunt proof gaps in the changed lines: new or altered behavior with no "
+                  "accompanying test that can fail on it, assertions that stay green over "
+                  "broken output because they never consume the artifact the way a real "
+                  "consumer does (bare presence checks), tests weakened or deleted alongside "
+                  "the behavior they proved, and newly added synthetic fixtures standing in "
+                  "for capturable real artifacts. Judge only what the slice shows: never "
+                  "infer a test is absent from the repository because it is not in this "
+                  "slice. A blocking finding must name the concrete defect the shown proof "
+                  "would pass over. Test style, coverage percentages, and hypothetical "
+                  "failures without a named defect are not in scope."
+              ),
+              # SSOT: harness/review-skills/maintainability-contracts.md
+              "maintainability-contracts": (
+                  "Hunt truth drift between what the changed lines declare and what they do: "
+                  "public API, schema, CLI, or workflow-interface changes that break a caller "
+                  "shown or referenced in the slice; comments, docstrings, or documentation "
+                  "that now contradict the executable behavior beside them; and names that "
+                  "misstate what the named thing does. The defect class is one — a declared "
+                  "contract a consumer or reader will rely on that the shown lines make "
+                  "false. A blocking finding must identify that concrete consumer or reader. "
+                  "Formatting, style, code duplication, dead code, and speculative breakage "
+                  "of callers not evidenced in the slice are not in scope."
+              ),
+              # SSOT: harness/review-skills/governance-five-rods.md
+              "governance-five-rods": (
+                  "Hunt evidence-integrity breaks in the changed lines — the estate's "
+                  "constitution rods: authorship or attribution removed, spoofed, or blurred; "
+                  "claims, receipts, or witnesses fabricated, weakened, or made unverifiable; "
+                  "a path created for any actor to approve, validate, or quorum-count its own "
+                  "evidence; degraded or unproven evidence relabelled as committed fact. "
+                  "Judge only mechanisms the shown lines themselves change. A blocking "
+                  "finding must name the rod and the shown-line mechanism that breaks it. "
+                  "Secrets and permission scopes belong to security-boundaries; governance "
+                  "philosophy without a concretely broken control is not a defect."
+              ),
+          }
+          # <<< VERBATIM harness/scripts/review_skills.py (sync-enforced)
+          EMBED_REVIEW_SKILLS
           cat > /tmp/aiwf/harness/scripts/validator_chain.py <<'EMBED_VALIDATOR_CHAIN'
           # >>> VERBATIM harness/scripts/validator_chain.py (sync-enforced)
           #!/usr/bin/env python3
           """Staged, head-bound AI validation chain.
 
-          DeepSeek and Kimi each run two deterministic specialist slices, then validate
-          the other provider's findings. OpenAI sees only that compact dossier and is the
-          fail-closed final arbiter. No provider can approve its own evidence.
+          DeepSeek and Kimi each run three deterministic specialist slices under
+          versioned, Codex-validated skill charters (harness/review-skills/), then
+          validate the other provider's findings. OpenAI sees only that compact dossier
+          and is the fail-closed final arbiter. No provider can approve its own
+          evidence.
           """
+
           from __future__ import annotations
 
           import argparse
@@ -2529,18 +2646,19 @@ jobs:
           import urllib.error
           from concurrent.futures import ThreadPoolExecutor, as_completed
           from pathlib import Path
-          from typing import Any
+          from typing import Any, Callable
 
           sys.path.insert(0, str(Path(__file__).resolve().parent))
           import ai_review
           from dispatch_scrub import ScrubError, scrub_payload
           from deepseek_run import _extract_message
+          from review_skills import CHARTERS, SPECIALTIES
 
           SCHEMA = "validator-chain/v1"
-          SPECIALTIES = {
-              "deepseek": ("correctness-reliability", "security-boundaries"),
-              "kimi": ("tests-operability", "governance-five-rods"),
-          }
+          PUBLIC_PROJECTION = "validator-chain/public-commitment/v1"
+          # Skills rotate over slices (index % skills-per-provider), so every skill is
+          # guaranteed a slice only when at least this many slices exist.
+          _MIN_SLICES = max(len(skills) for skills in SPECIALTIES.values())
 
 
           def _digest(value: Any) -> str:
@@ -2601,19 +2719,50 @@ jobs:
               return slices
 
 
-          # moonshot-v1-8k is the LIVE Kimi reviewer (reviewer-key-health). Its window is
-          # 8,192 tokens total (prompt + max_tokens). The specialist prompt + system
-          # instruction + a 12k-char slice produced HTTP 400 "requested: 9653" on
-          # PR #327 (corpus-recovery). Bound slices so prompt+600 completion fits 8k.
-          # DeepSeek/OpenAI tolerate the same bound; more slices, same byte coverage.
+          # moonshot-v1-8k needs the original small slice. Current long-context models
+          # must not inherit that limit: on PR #387 it expanded 2,722,262 diff bytes into
+          # 1,238 slices / 2,476 primary calls before the hosted runner shut down.
+          # Kimi's model list dated 2026-07-28 gives K3 a 1M-token context and K2.7 Code
+          # 256K; DeepSeek V4's model contract gives both current variants 1M. These
+          # conservative character budgets retain exact diff-byte coverage with margin.
+          # Source record: docs/research/2026-07-28__validator-model-context-sources.md
           _KIMI_SAFE_SLICE_CHARS = 3_500
+          _KIMI_8K_SAFE_PROMPT_CHARS = 8_000
+          _KIMI_32K_SAFE_SLICE_CHARS = 20_000
+          _KIMI_128K_SAFE_SLICE_CHARS = 80_000
+          _KIMI_256K_SAFE_SLICE_CHARS = 100_000
+          _KIMI_1M_SAFE_SLICE_CHARS = 400_000
+          _MAX_PRIMARY_CALLS = 128
+          _MAX_FINAL_DOSSIER_CHARS = 32_000
+
+
+          def _slice_char_budget(kimi_model: str | None = None) -> int:
+              """Fail-safe diff budget for the configured Kimi review context."""
+              model = (
+                  (
+                      kimi_model
+                      if kimi_model is not None
+                      else os.environ.get("KIMI_REVIEW_MODEL", "")
+                  )
+                  .strip()
+                  .lower()
+              )
+              if model == "kimi-k3":
+                  return _KIMI_1M_SAFE_SLICE_CHARS
+              if model.startswith(("kimi-k2.7-code", "kimi-k2.6", "kimi-k2.5")):
+                  return _KIMI_256K_SAFE_SLICE_CHARS
+              if "moonshot-v1-128k" in model:
+                  return _KIMI_128K_SAFE_SLICE_CHARS
+              if "moonshot-v1-32k" in model:
+                  return _KIMI_32K_SAFE_SLICE_CHARS
+              return _KIMI_SAFE_SLICE_CHARS
 
 
           def _diff_slices(diff: str, max_chars: int = _KIMI_SAFE_SLICE_CHARS) -> list[str]:
               """Partition by complete files/hunks; contract: tests/test_validator_chain.py."""
               files = [c for c in re.split(r"(?=^diff --git )", diff, flags=re.MULTILINE) if c]
               if not files:
-                  return [diff, diff]
+                  return [diff] * _MIN_SLICES
 
               slices: list[str] = []
               current = ""
@@ -2631,14 +2780,23 @@ jobs:
               if current:
                   slices.append(current)
 
-              # Both specialist skills must run even for a tiny one-file patch. Preserve
-              # complete-file context: split at a file boundary when possible, otherwise
-              # give both specialists the same complete diff.
-              if len(slices) == 1 and len(files) > 1:
-                  midpoint = max(1, len(files) // 2)
-                  slices = ["".join(files[:midpoint]), "".join(files[midpoint:])]
-              elif len(slices) == 1:
-                  slices = [slices[0], slices[0]]
+              # Every specialist skill must run even for a tiny patch: skills rotate by
+              # slice index, so guarantee at least _MIN_SLICES slices. Prefer complete
+              # file-boundary groups; duplicate whole slices only when the diff has too
+              # few files to split further (a duplicated slice is simply reviewed under
+              # more than one skill, exactly as the old single-file case was).
+              groups_wanted = min(_MIN_SLICES, len(files))
+              if len(slices) < groups_wanted:
+                  groups = [
+                      files[i * len(files) // groups_wanted : (i + 1) * len(files) // groups_wanted]
+                      for i in range(groups_wanted)
+                  ]
+                  candidate = ["".join(group) for group in groups]
+                  if all(group and len(part) <= max_chars for group, part in zip(groups, candidate)):
+                      slices = candidate
+              base = list(slices)
+              while len(slices) < _MIN_SLICES:
+                  slices.append(base[len(slices) % len(base)])
               return slices
 
 
@@ -2659,11 +2817,15 @@ jobs:
               return value
 
 
-          def _evidence_excerpt(diff_slice: str, findings: list[dict], limit: int = 12_000) -> str:
+          def _evidence_excerpt(
+              diff_slice: str, findings: list[dict], limit: int = 12_000
+          ) -> str:
               """Bound peer evidence around a cited code fragment when one is available."""
               candidates = []
               for finding in findings:
-                  candidates.extend(re.findall(r"`([^`\n]{6,300})`", str(finding.get("evidence", ""))))
+                  candidates.extend(
+                      re.findall(r"`([^`\n]{6,300})`", str(finding.get("evidence", "")))
+                  )
               for candidate in sorted(candidates, key=len, reverse=True):
                   pos = diff_slice.find(candidate)
                   if pos >= 0:
@@ -2676,8 +2838,12 @@ jobs:
               if provider == "deepseek":
                   return os.environ.get("DEEPSEEK_REVIEW_MODEL") or "deepseek-v4-flash"
               if provider == "kimi":
-                  return os.environ.get("KIMI_REVIEW_MODEL") or ai_review._discover_kimi_model(key)
-              return os.environ.get("OPENAI_REVIEW_MODEL") or ai_review._discover_openai_model(key)
+                  return os.environ.get("KIMI_REVIEW_MODEL") or ai_review._discover_kimi_model(
+                      key
+                  )
+              return os.environ.get("OPENAI_REVIEW_MODEL") or ai_review._discover_openai_model(
+                  key
+              )
 
 
           def _payload(provider: str, model: str, prompt: str, budget: int) -> dict:
@@ -2699,7 +2865,12 @@ jobs:
               if provider == "openai":
                   payload.update(max_completion_tokens=budget, reasoning_effort="low")
               elif provider == "kimi":
-                  payload.update(max_tokens=budget, temperature=1)
+                  if model == "kimi-k3":
+                      # K3 fixes sampling parameters and requires them to be omitted.
+                      # Low reasoning is sufficient for bounded JSON specialist records.
+                      payload.update(max_completion_tokens=budget, reasoning_effort="low")
+                  else:
+                      payload.update(max_tokens=budget, temperature=1)
               else:
                   # V4 enables high-effort thinking by default. Validator responses are
                   # deliberately small structured objects, so disable hidden reasoning:
@@ -2712,16 +2883,26 @@ jobs:
               return payload
 
 
-          def _kimi_output_budget(prompt: str, requested: int) -> int:
+          def _kimi_output_budget(prompt: str, requested: int, model: str) -> int:
               """Keep prompt+max_tokens inside moonshot-v1-8k's 8192 combined window.
 
               Measured on PR #327: cross-validation packets at ~8107 input tokens left
               only ~85 completion tokens, so finish_reason=length truncated JSON and the
               larger adaptive budget made the squeeze worse.
               """
-              # Mixed code/JSON prompts tokenize denser than English prose.
-              est_input = max(1, len(prompt) // 3)
-              room = 8192 - est_input - 32
+              if "8k" not in model.lower():
+                  return requested
+              if len(prompt) > _KIMI_8K_SAFE_PROMPT_CHARS:
+                  raise RuntimeError(
+                      "kimi prompt exceeds the pre-dispatch moonshot-v1-8k character cap "
+                      f"(chars={len(prompt)} cap={_KIMI_8K_SAFE_PROMPT_CHARS})"
+                  )
+              # Code, paths, JSON and hashes tokenize much more densely than English.
+              # The old chars/3 estimate sent a 13,192-token input to an 8,192-token
+              # route. A deliberately conservative two tokens per three characters,
+              # plus framing reserve, prevents dispatch rather than learning by HTTP 400.
+              est_input = max(1, (len(prompt) * 2 + 2) // 3)
+              room = 8192 - est_input - 96
               if room < 64:
                   raise RuntimeError(
                       f"kimi prompt too large for moonshot-v1-8k "
@@ -2730,7 +2911,13 @@ jobs:
               return min(requested, room)
 
 
-          def _call(provider: str, prompt: str, budgets: tuple[int, int]) -> tuple[dict, dict, str]:
+          def _call(
+              provider: str,
+              prompt: str,
+              budgets: tuple[int, int],
+              *,
+              validate: Callable[[dict], None] | None = None,
+          ) -> tuple[dict, dict, str]:
               cfg = ai_review.PROVIDERS[provider]
               key = os.environ.get(cfg["key_env"], "")
               if not key:
@@ -2746,56 +2933,75 @@ jobs:
                   raise RuntimeError("dispatch scrub blocked validation payload")
 
               last: Exception | None = None
-              # Kimi: if the first attempt truncates, shrink the prompt — do not ask for
-              # a larger completion budget inside an already-full 8k window.
-              kimi_prompts = [prompt]
-              if provider == "kimi" and len(prompt) > 6_000:
-                  kimi_prompts.append(prompt[:6_000] + "\n…[truncated for moonshot-v1-8k]")
+              for budget in budgets:
+                  if provider == "kimi":
+                      budget = _kimi_output_budget(prompt, budget, model)
+                  try:
 
-              for attempt_prompt in kimi_prompts if provider == "kimi" else [prompt]:
-                  for budget in budgets:
-                      if provider == "kimi":
-                          try:
-                              budget = _kimi_output_budget(attempt_prompt, budget)
-                          except RuntimeError as exc:
-                              last = exc
-                              break
-                      try:
-                          result = ai_review._post_with_retry(
-                              cfg["url"],
-                              _payload(provider, model, attempt_prompt, budget),
-                              key,
-                              cfg["timeout"],
-                              provider=provider,
-                              parse=lambda out: (
-                                  lambda extracted: (
-                                      _json_object(extracted[0]),
-                                      extracted[1],
-                                      extracted[2],
-                                  )
-                              )(_extract_message(out, model)),
-                          )
-                          return result
-                      except ValueError as exc:
-                          # Malformed structured output is exactly what the second adaptive
-                          # budget is for; JSON mode reduces it but providers may still fail.
-                          last = exc
-                      except RuntimeError as exc:
-                          last = exc
-                          if "empty" not in str(exc).lower() and "json" not in str(exc).lower():
-                              raise
-                      except urllib.error.HTTPError as exc:
-                          detail = exc.read()[:500].decode(errors="replace")
-                          raise RuntimeError(
-                              f"{provider} HTTP {exc.code} model={model} budget={budget}: {detail}"
-                          ) from exc
+                      def parse(out: object) -> tuple[dict, dict, str]:
+                          content, usage, actual = _extract_message(out, model)
+                          result = _json_object(content)
+                          if validate is not None:
+                              validate(result)
+                          return result, usage, actual
+
+                      result = ai_review._post_with_retry(
+                          cfg["url"],
+                          _payload(provider, model, prompt, budget),
+                          key,
+                          cfg["timeout"],
+                          provider=provider,
+                          parse=parse,
+                      )
+                      return result
+                  except ValueError as exc:
+                      # Malformed structured output is exactly what the second adaptive
+                      # budget is for; JSON mode reduces it but providers may still fail.
+                      last = exc
+                  except RuntimeError as exc:
+                      last = exc
+                      if "empty" not in str(exc).lower() and "json" not in str(exc).lower():
+                          raise
+                  except urllib.error.HTTPError as exc:
+                      detail = exc.read()[:500].decode(errors="replace")
+                      raise RuntimeError(
+                          f"{provider} HTTP {exc.code} model={model} budget={budget}: {detail}"
+                      ) from exc
               raise RuntimeError(
                   f"{provider} model={model} exhausted adaptive output budgets: {last}"
               )
 
 
+          def _require_primary_schema(result: dict, provider: str, specialty: str) -> None:
+              verdict = result.get("verdict")
+              findings = result.get("findings")
+              if (
+                  verdict not in {"APPROVE", "REJECT"}
+                  or not isinstance(findings, list)
+                  or len(findings) > 3
+              ):
+                  raise ValueError(f"{provider}/{specialty} returned invalid primary schema")
+
+
+          def _require_cross_schema(result: dict, provider: str) -> None:
+              if not isinstance(result.get("validation_complete"), bool) or not isinstance(
+                  result.get("confirmed_blockers"), list
+              ):
+                  raise ValueError(f"{provider} returned invalid cross-validation schema")
+
+
+          def _require_final_schema(result: dict) -> None:
+              if result.get("decision") not in {"APPROVE", "REJECT", "BLOCKED"}:
+                  raise ValueError("OpenAI returned invalid final decision schema")
+
+
           def _primary(
-              provider: str, specialty: str, index: int, slice_count: int, diff_slice: str, head: str
+              provider: str,
+              specialty: str,
+              index: int,
+              slice_count: int,
+              diff_slice: str,
+              head: str,
           ) -> dict:
               prompt = (
                   "You are a specialist code validator. Return ONLY JSON with keys "
@@ -2828,19 +3034,18 @@ jobs:
                   "Reject only a concrete exploitable or behavioral defect, not generic risk "
                   "from a hypothetical compromised GitHub token. "
                   f"Provider family: {provider}. Specialist skill: {specialty}. "
+                  f"Your skill charter, which governs what you may flag and the evidence a "
+                  f"blocking finding requires: {CHARTERS[specialty]} "
                   f"Expected PR head: {head}. Slice {index + 1}/{slice_count} follows:\n{diff_slice}"
               )
               result, usage, actual = _call(
-                  provider, prompt, (1200, 2400) if provider == "deepseek" else (600, 1200)
+                  provider,
+                  prompt,
+                  (1200, 2400) if provider == "deepseek" else (600, 1200),
+                  validate=lambda value: _require_primary_schema(value, provider, specialty),
               )
               verdict = result.get("verdict")
               findings = result.get("findings")
-              if (
-                  verdict not in {"APPROVE", "REJECT"}
-                  or not isinstance(findings, list)
-                  or len(findings) > 3
-              ):
-                  raise ValueError(f"{provider}/{specialty} returned invalid primary schema")
               record = {
                   "provider": provider,
                   "model_actual": actual,
@@ -2867,38 +3072,14 @@ jobs:
               head: str,
           ) -> dict:
               rejected = [r for r in primary if r["verdict"] == "REJECT"]
-              # Cap excerpt size for the cross dossier. moonshot-v1-8k cross calls on
-              # PR #327 hit finish_reason=length at 8107 input / 85 output when excerpts
-              # used the 12k primary-slice bound.
-              excerpt_limit = 1_500 if provider == "kimi" else 12_000
-              packet = {
-                  "head_sha": head,
-                  "peer_provider": peer,
-                  "receipts": [r["receipt"] for r in primary],
-                  "verdicts": [r["verdict"] for r in primary],
-                  # Only rejections need finding text; APPROVE rows are receipt+verdict.
-                  "findings": [f for r in rejected for f in r["findings"]],
-                  "deterministic_checks": deterministic,
-                  "source_slices": [
-                      {
-                          "slice_index": r["slice_index"],
-                          "text": _evidence_excerpt(
-                              slices[r["slice_index"]], r["findings"], limit=excerpt_limit
-                          ),
-                      }
-                      for r in rejected[:8]  # hard cap: cross is a check, not a reprint
-                  ],
-                  "review_contract": {
-                      "diff_is_not_repository_inventory": True,
-                      "deterministic_check_passed": deterministic.get("conclusion") == "success",
-                      "all_three_stages_required": True,
-                      "fail_closed_on_provider_outage": True,
-                      "scrub_mutates_outbound_copy_only": True,
-                      "non_bot_body_markers_cannot_mint_bot_source": True,
-                  },
+              receipts = [r["receipt"] for r in primary]
+              summary = {
+                  "primary_count": len(primary),
+                  "receipts_sha256": _digest(sorted(receipts)),
+                  "approved": len(primary) - len(rejected),
+                  "rejected": len(rejected),
               }
-              # Structured cross contract: tests/test_validator_chain.py.
-              prompt = (
+              contract = (
                   "Cross-validate another provider family's specialist evidence. You may not "
                   "validate your own provider. Return ONLY JSON with keys validation_complete "
                   "(boolean) and confirmed_blockers (array of concise claims). Check each "
@@ -2927,57 +3108,162 @@ jobs:
                   "for a proved leak or source mutation. A generic compromised-token scenario "
                   "is not an exploit path; the source-key code assigns body markers only after "
                   "verifying the author is github-actions[bot].\n"
-                  + json.dumps(packet, separators=(",", ":"))
               )
-              result, usage, actual = _call(
-                  provider, prompt, (600, 1200)
-              )
-              if not isinstance(result.get("validation_complete"), bool) or not isinstance(
-                  result.get("confirmed_blockers"), list
-              ):
-                  raise ValueError(f"{provider} returned invalid cross-validation schema")
+              # Each rejection is checked in its own bounded dossier. The old single
+              # dossier grew with every slice and exceeded Kimi's 8k route before any
+              # fallback could run. APPROVE rows need only the aggregate commitment.
+              batches = rejected or [None]
+              packet_digests = []
+              usages = []
+              actual_models = set()
+              all_validations_complete = True
+              blockers: list[str] = []
+              for rejection in batches:
+                  packet = {
+                      "head_sha": head,
+                      "peer_provider": peer,
+                      "peer_summary": summary,
+                      "deterministic_checks": deterministic,
+                      "rejection": None,
+                      "review_contract": {
+                          "diff_is_not_repository_inventory": True,
+                          "deterministic_check_passed": deterministic.get("conclusion")
+                          == "success",
+                          "all_three_stages_required": True,
+                          "fail_closed_on_provider_outage": True,
+                          "scrub_mutates_outbound_copy_only": True,
+                          "non_bot_body_markers_cannot_mint_bot_source": True,
+                      },
+                  }
+                  if rejection is not None:
+                      compact_findings = [
+                          {
+                              key: str(finding.get(key, ""))[:320]
+                              for key in ("severity", "file", "line", "claim", "evidence")
+                          }
+                          for finding in rejection["findings"]
+                      ]
+                      packet["rejection"] = {
+                          "receipt": rejection["receipt"],
+                          "slice_index": rejection["slice_index"],
+                          "findings": compact_findings,
+                          "source_slice": _evidence_excerpt(
+                              slices[rejection["slice_index"]],
+                              rejection["findings"],
+                              limit=1_500 if provider == "kimi" else 12_000,
+                          ),
+                      }
+                  packet_digests.append(_digest(packet))
+                  result, usage, actual = _call(
+                      provider,
+                      contract + json.dumps(packet, separators=(",", ":")),
+                      (600, 1200),
+                      validate=lambda value: _require_cross_schema(value, provider),
+                  )
+                  all_validations_complete = (
+                      all_validations_complete and result["validation_complete"]
+                  )
+                  blockers.extend(str(item) for item in result["confirmed_blockers"])
+                  usages.append(usage)
+                  actual_models.add(actual)
               record = {
                   "provider": provider,
-                  "model_actual": actual,
+                  "model_actual": ",".join(sorted(actual_models)),
                   "validates_provider": peer,
                   "head_sha": head,
-                  "validates_receipt": _digest(packet),
-                  "validation_complete": result["validation_complete"],
-                  "confirmed_blockers": result["confirmed_blockers"],
-                  "usage": usage,
+                  "validates_receipt": _digest(
+                      {
+                          "peer_provider": peer,
+                          "head_sha": head,
+                          "peer_receipts": sorted(receipts),
+                      }
+                  ),
+                  "validation_packets_sha256": _digest(packet_digests),
+                  "validation_complete": all_validations_complete,
+                  "confirmed_blockers": list(dict.fromkeys(blockers)),
+                  "usage": {"calls": usages},
               }
               record["receipt"] = _digest(record)
               return record
 
 
           def _final(primary: list[dict], cross: list[dict], head: str) -> dict:
+              primary_commitments = []
+              for provider in sorted(SPECIALTIES):
+                  records = sorted(
+                      (record for record in primary if record["provider"] == provider),
+                      key=lambda record: record["slice_index"],
+                  )
+                  receipts = [record["receipt"] for record in records]
+                  rejected_receipts = [
+                      record["receipt"] for record in records if record["verdict"] == "REJECT"
+                  ]
+                  primary_commitments.append(
+                      {
+                          "provider": provider,
+                          "head_sha": head,
+                          "primary_count": len(records),
+                          "approved": len(records) - len(rejected_receipts),
+                          "rejected": len(rejected_receipts),
+                          "receipts_sha256": _digest(
+                              {
+                                  "provider": provider,
+                                  "head_sha": head,
+                                  "receipts": receipts,
+                              }
+                          ),
+                          "rejected_receipts": rejected_receipts,
+                      }
+                  )
+              cross_commitments = [
+                  {
+                      "provider": record["provider"],
+                      "validates_provider": record["validates_provider"],
+                      "head_sha": record["head_sha"],
+                      "validation_complete": record["validation_complete"],
+                      "confirmed_blocker_count": len(record["confirmed_blockers"]),
+                      "confirmed_blockers_sha256": _digest(record["confirmed_blockers"]),
+                      "receipt": record["receipt"],
+                  }
+                  for record in sorted(
+                      cross, key=lambda record: (record["provider"], record["validates_provider"])
+                  )
+              ]
               dossier = {
                   "schema": SCHEMA,
                   "head_sha": head,
-                  "primary": primary,
-                  "cross": cross,
+                  "primary_commitments": primary_commitments,
+                  "cross_commitments": cross_commitments,
               }
+              dossier_json = json.dumps(dossier, separators=(",", ":"))
+              if len(dossier_json) > _MAX_FINAL_DOSSIER_CHARS:
+                  raise RuntimeError(
+                      "validator final dossier exceeds deterministic character budget "
+                      f"(chars={len(dossier_json)} cap={_MAX_FINAL_DOSSIER_CHARS})"
+                  )
               # Final decision contract: tests/test_validator_chain.py.
               prompt = (
                   "You are the final OpenAI approval gate. Return ONLY JSON with decision "
                   '("APPROVE", "REJECT", or "BLOCKED") and rationale (one short string). '
                   "APPROVE only when both reciprocal cross-validations completed and their "
+                  "confirmed_blocker_count values are zero. "
                   "(contract: tests/test_validator_chain.py) "
-                  "confirmed_blockers arrays are empty. A peer may clear an unsupported "
-                  "specialist rejection. This is "
+                  "A peer may clear an unsupported specialist rejection. This is "
                   "a compact evidence dossier, not a request to redo the code review.\n"
-                  + json.dumps(dossier, separators=(",", ":"))
+                  + dossier_json
               )
-              result, usage, actual = _call("openai", prompt, (4000, 8000))
+              result, usage, actual = _call(
+                  "openai", prompt, (4000, 8000), validate=_require_final_schema
+              )
               decision = result.get("decision")
-              if decision not in {"APPROVE", "REJECT", "BLOCKED"}:
-                  raise ValueError("OpenAI returned invalid final decision schema")
               mechanically_clear = all(
                   r["validation_complete"] and not r["confirmed_blockers"] for r in cross
               )
               if decision == "APPROVE" and not mechanically_clear:
                   decision = "BLOCKED"
-                  result["rationale"] = "OpenAI approval contradicted unresolved specialist evidence."
+                  result["rationale"] = (
+                      "OpenAI approval contradicted unresolved specialist evidence."
+                  )
               return {
                   "provider": "openai",
                   "model_actual": actual,
@@ -2989,8 +3275,43 @@ jobs:
               }
 
 
+          def _validate_primary_matrix(primary: list[dict], slices: list[str], head: str) -> None:
+              """Bind the concurrent result set to every source slice and both providers."""
+              expected = {
+                  (provider, index) for provider in SPECIALTIES for index in range(len(slices))
+              }
+              actual = {
+                  (str(record.get("provider")), record.get("slice_index")) for record in primary
+              }
+              if len(primary) != len(expected) or actual != expected:
+                  raise RuntimeError(
+                      "validator primary evidence matrix is incomplete or duplicated"
+                  )
+              for record in primary:
+                  provider = record["provider"]
+                  index = record["slice_index"]
+                  source = slices[index]
+                  if (
+                      record.get("head_sha") != head
+                      or record.get("skill")
+                      != SPECIALTIES[provider][index % len(SPECIALTIES[provider])]
+                      or record.get("slice_sha256") != hashlib.sha256(source.encode()).hexdigest()
+                      or record.get("slice_bytes") != len(source.encode())
+                  ):
+                      raise RuntimeError(
+                          "validator primary evidence is not bound to its source slice"
+                      )
+                  unsigned = {key: value for key, value in record.items() if key != "receipt"}
+                  if record.get("receipt") != _digest(unsigned):
+                      raise RuntimeError("validator primary receipt is invalid")
+
+
           def validate_manifest(manifest: dict, expected_head: str) -> tuple[bool, str]:
-              if manifest.get("schema") != SCHEMA or manifest.get("head_sha") != expected_head:
+              if (
+                  manifest.get("schema") != SCHEMA
+                  or manifest.get("head_sha") != expected_head
+                  or not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("diff_sha256", "")))
+              ):
                   return False, "schema or head mismatch"
               deterministic = manifest.get("deterministic_checks", {})
               if (
@@ -3005,22 +3326,100 @@ jobs:
                   manifest.get("cross", []),
                   manifest.get("final", {}),
               )
-              counts = {p: sum(r.get("provider") == p for r in primary) for p in SPECIALTIES}
-              skills = {p: {r.get("skill") for r in primary if r.get("provider") == p} for p in SPECIALTIES}
+              coverage = manifest.get("coverage", {})
+              slice_count = coverage.get("slice_count")
               if (
-                  len(primary) < 4
-                  or counts["deepseek"] != counts["kimi"]
-                  or counts["deepseek"] < 2
-                  or any(skills[p] != set(SPECIALTIES[p]) for p in SPECIALTIES)
+                  not isinstance(slice_count, int)
+                  or isinstance(slice_count, bool)
+                  or slice_count < _MIN_SLICES
+                  or not isinstance(coverage.get("slice_budget_chars"), int)
+                  or isinstance(coverage.get("slice_budget_chars"), bool)
+                  or coverage["slice_budget_chars"] < 1
               ):
-                  return False, "missing specialist instances"
-              if any(r.get("head_sha") != expected_head for r in primary):
-                  return False, "stale specialist evidence"
+                  return False, "slice coverage commitment missing"
+              reviewed_bytes = coverage.get("reviewed_bytes")
+              total_bytes = coverage.get("total_bytes")
+              if (
+                  not isinstance(reviewed_bytes, int)
+                  or isinstance(reviewed_bytes, bool)
+                  or reviewed_bytes <= 0
+                  or reviewed_bytes != total_bytes
+              ):
+                  return False, "full diff coverage missing"
+              expected_matrix = {
+                  (provider, index) for provider in SPECIALTIES for index in range(slice_count)
+              }
+              if coverage.get("primary_calls") != len(expected_matrix):
+                  return False, "primary-call coverage commitment mismatch"
+              actual_matrix = []
+              slice_bindings: dict[int, tuple[str, int]] = {}
+              for record in primary:
+                  provider = record.get("provider")
+                  index = record.get("slice_index")
+                  if (
+                      provider not in SPECIALTIES
+                      or not isinstance(index, int)
+                      or isinstance(index, bool)
+                      or index < 0
+                      or index >= slice_count
+                  ):
+                      return False, "invalid specialist matrix coordinates"
+                  actual_matrix.append((provider, index))
+                  slice_sha256 = str(record.get("slice_sha256", ""))
+                  slice_bytes = record.get("slice_bytes")
+                  if (
+                      not re.fullmatch(r"[0-9a-f]{64}", slice_sha256)
+                      or not isinstance(slice_bytes, int)
+                      or isinstance(slice_bytes, bool)
+                      or slice_bytes < 1
+                  ):
+                      return False, "invalid specialist slice commitment"
+                  binding = (slice_sha256, slice_bytes)
+                  if index in slice_bindings and slice_bindings[index] != binding:
+                      return False, "specialist slice commitments disagree"
+                  slice_bindings[index] = binding
+                  unsigned = {key: value for key, value in record.items() if key != "receipt"}
+                  if (
+                      record.get("head_sha") != expected_head
+                      or record.get("skill")
+                      != SPECIALTIES[provider][index % len(SPECIALTIES[provider])]
+                      or record.get("receipt") != _digest(unsigned)
+                  ):
+                      return False, "stale or unbound specialist evidence"
+              if (
+                  len(actual_matrix) != len(expected_matrix)
+                  or set(actual_matrix) != expected_matrix
+              ):
+                  return False, "specialist evidence matrix incomplete or duplicated"
               pairs = {(r.get("provider"), r.get("validates_provider")) for r in cross}
-              if pairs != {("deepseek", "kimi"), ("kimi", "deepseek")}:
+              if len(cross) != 2 or pairs != {("deepseek", "kimi"), ("kimi", "deepseek")}:
                   return False, "reciprocal cross-validation missing"
+              for record in cross:
+                  unsigned = {key: value for key, value in record.items() if key != "receipt"}
+                  peer = record.get("validates_provider")
+                  peer_receipts = sorted(
+                      item["receipt"] for item in primary if item["provider"] == peer
+                  )
+                  expected_peer_receipt = _digest(
+                      {
+                          "peer_provider": peer,
+                          "head_sha": expected_head,
+                          "peer_receipts": peer_receipts,
+                      }
+                  )
+                  if (
+                      record.get("head_sha") != expected_head
+                      or record.get("validates_receipt") != expected_peer_receipt
+                      or not re.fullmatch(
+                          r"[0-9a-f]{64}", str(record.get("validation_packets_sha256", ""))
+                      )
+                      or record.get("receipt") != _digest(unsigned)
+                  ):
+                      return False, "stale or unbound cross-validation evidence"
               # Reciprocal blocker contract: tests/test_validator_chain.py.
-              if any(not r.get("validation_complete") or r.get("confirmed_blockers") for r in cross):
+              if any(
+                  not r.get("validation_complete") or r.get("confirmed_blockers") for r in cross
+              ):
                   return False, "cross-validation confirmed blockers"
               receipts = sorted(r["receipt"] for r in primary + cross)
               if (
@@ -3033,37 +3432,283 @@ jobs:
               return True, "approved"
 
 
+          def validate_public_manifest(manifest: dict, expected_head: str) -> tuple[bool, str]:
+              """Validate the posted aggregate commitment, not the artifact's full rows."""
+              if (
+                  manifest.get("schema") != SCHEMA
+                  or manifest.get("projection") != PUBLIC_PROJECTION
+                  or manifest.get("head_sha") != expected_head
+                  or not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("diff_sha256", "")))
+                  or not re.fullmatch(
+                      r"[0-9a-f]{64}", str(manifest.get("full_manifest_sha256", ""))
+                  )
+              ):
+                  return False, "public projection schema, head, or artifact commitment mismatch"
+              deterministic = manifest.get("deterministic_checks", {})
+              if (
+                  not isinstance(deterministic.get("name"), str)
+                  or not deterministic["name"].strip()
+                  or deterministic.get("conclusion") != "success"
+                  or deterministic.get("head_sha") != expected_head
+              ):
+                  return False, "deterministic current-head receipt missing"
+              coverage = manifest.get("coverage", {})
+              slice_count = coverage.get("slice_count")
+              if (
+                  not isinstance(coverage.get("reviewed_bytes"), int)
+                  or isinstance(coverage.get("reviewed_bytes"), bool)
+                  or coverage["reviewed_bytes"] <= 0
+                  or coverage.get("reviewed_bytes") != coverage.get("total_bytes")
+                  or not isinstance(slice_count, int)
+                  or isinstance(slice_count, bool)
+                  or slice_count < _MIN_SLICES
+                  or not isinstance(coverage.get("slice_budget_chars"), int)
+                  or isinstance(coverage.get("slice_budget_chars"), bool)
+                  or coverage["slice_budget_chars"] < 1
+                  or coverage.get("primary_calls") != slice_count * len(SPECIALTIES)
+              ):
+                  return False, "full diff coverage missing"
+              primary = manifest.get("primary", [])
+              expected_aggregates = {
+                  (provider, skill)
+                  for provider, skills in SPECIALTIES.items()
+                  for skill in skills
+              }
+              actual_aggregates = []
+              for record in primary:
+                  provider, skill = record.get("provider"), record.get("skill")
+                  actual_aggregates.append((provider, skill))
+                  if (
+                      record.get("head_sha") != expected_head
+                      or not isinstance(record.get("instance_count"), int)
+                      or isinstance(record.get("instance_count"), bool)
+                      or record["instance_count"] < 1
+                      or record.get("receipt") != record.get("receipts_sha256")
+                      or not re.fullmatch(r"[0-9a-f]{64}", str(record.get("receipt", "")))
+                  ):
+                      return False, "invalid public specialist commitment"
+              if (
+                  len(actual_aggregates) != len(expected_aggregates)
+                  or set(actual_aggregates) != expected_aggregates
+              ):
+                  return False, "public specialist commitments incomplete or duplicated"
+              if sum(record["instance_count"] for record in primary) != coverage.get(
+                  "primary_calls"
+              ):
+                  return False, "public specialist count does not match coverage"
+              for provider in SPECIALTIES:
+                  if (
+                      sum(
+                          record["instance_count"]
+                          for record in primary
+                          if record["provider"] == provider
+                      )
+                      != slice_count
+                  ):
+                      return False, "public provider slice count does not match coverage"
+              cross = manifest.get("cross", [])
+              pairs = {(r.get("provider"), r.get("validates_provider")) for r in cross}
+              if len(cross) != 2 or pairs != {("deepseek", "kimi"), ("kimi", "deepseek")}:
+                  return False, "public reciprocal cross-validation missing"
+              for record in cross:
+                  if (
+                      record.get("head_sha") != expected_head
+                      or not record.get("validation_complete")
+                      or record.get("confirmed_blockers")
+                      or not re.fullmatch(r"[0-9a-f]{64}", str(record.get("receipt", "")))
+                      or not re.fullmatch(
+                          r"[0-9a-f]{64}", str(record.get("validates_receipt", ""))
+                      )
+                      or not re.fullmatch(
+                          r"[0-9a-f]{64}", str(record.get("validation_packets_sha256", ""))
+                      )
+                  ):
+                      return False, "invalid public cross-validation commitment"
+              final = manifest.get("final", {})
+              receipts = sorted(record["receipt"] for record in primary + cross)
+              if (
+                  final.get("provider") != "openai"
+                  or final.get("head_sha") != expected_head
+                  or final.get("decision") != "APPROVE"
+                  or final.get("accepted_receipts") != receipts
+              ):
+                  return False, "public OpenAI approval missing or unbound"
+              return True, "approved"
+
+
+          def public_manifest(manifest: dict) -> dict:
+              """Project exhaustive slice evidence into a GitHub-sized commitment.
+
+              The full manifest is retained as an Actions artifact. GitHub's review API
+              rejects bodies over 65,536 characters, so the posted receipt carries one
+              cryptographic aggregate per provider/skill plus the reciprocal checks.
+              """
+              aggregates = []
+              for provider in sorted(SPECIALTIES):
+                  for skill in SPECIALTIES[provider]:
+                      records = [
+                          record
+                          for record in manifest["primary"]
+                          if record["provider"] == provider and record["skill"] == skill
+                      ]
+                      receipts = sorted(record["receipt"] for record in records)
+                      commitment = _digest(
+                          {
+                              "provider": provider,
+                              "skill": skill,
+                              "head_sha": manifest["head_sha"],
+                              "receipts": receipts,
+                          }
+                      )
+                      aggregates.append(
+                          {
+                              "provider": provider,
+                              "instance": f"{provider}-{skill}-aggregate",
+                              "skill": skill,
+                              "head_sha": manifest["head_sha"],
+                              "instance_count": len(records),
+                              "receipts_sha256": commitment,
+                              "receipt": commitment,
+                          }
+                      )
+              cross = [
+                  {
+                      key: record[key]
+                      for key in (
+                          "provider",
+                          "validates_provider",
+                          "head_sha",
+                          "validation_complete",
+                          "confirmed_blockers",
+                          "validates_receipt",
+                          "validation_packets_sha256",
+                          "receipt",
+                      )
+                  }
+                  for record in manifest["cross"]
+              ]
+              accepted = sorted(
+                  [record["receipt"] for record in aggregates]
+                  + [record["receipt"] for record in cross]
+              )
+              full_json = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+              return {
+                  "schema": manifest["schema"],
+                  "projection": PUBLIC_PROJECTION,
+                  "head_sha": manifest["head_sha"],
+                  "diff_sha256": manifest["diff_sha256"],
+                  "coverage": manifest["coverage"],
+                  "deterministic_checks": manifest["deterministic_checks"],
+                  "full_manifest_sha256": hashlib.sha256(full_json.encode()).hexdigest(),
+                  "primary": aggregates,
+                  "cross": cross,
+                  "final": {
+                      "provider": manifest["final"]["provider"],
+                      "head_sha": manifest["final"]["head_sha"],
+                      "decision": manifest["final"]["decision"],
+                      "rationale": manifest["final"]["rationale"],
+                      "accepted_receipts": accepted,
+                  },
+              }
+
+
           def run(diff: str, total_bytes: int, deterministic: dict, head: str) -> dict:
-              slices = _diff_slices(diff)
+              slice_budget = _slice_char_budget()
+              slices = _diff_slices(diff, max_chars=slice_budget)
+              primary_call_count = len(slices) * len(SPECIALTIES)
+              if primary_call_count > _MAX_PRIMARY_CALLS:
+                  raise RuntimeError(
+                      "validator plan exceeds bounded primary-call budget "
+                      f"(calls={primary_call_count} cap={_MAX_PRIMARY_CALLS} "
+                      f"slice_chars={slice_budget}); configure a supported long-context "
+                      "Kimi review model"
+                  )
+              workers = min(8, primary_call_count)
+              print(
+                  "validator chain plan: "
+                  f"diff_bytes={len(diff.encode())} slices={len(slices)} "
+                  f"primary_calls={primary_call_count} workers={workers} "
+                  f"slice_budget_chars={slice_budget}",
+                  file=sys.stderr,
+                  flush=True,
+              )
               jobs = []
-              with ThreadPoolExecutor(max_workers=min(8, len(slices) * 2)) as pool:
-                  for provider, skills in SPECIALTIES.items():
-                      for index, diff_slice in enumerate(slices):
+              with ThreadPoolExecutor(max_workers=workers) as pool:
+                  for index, diff_slice in enumerate(slices):
+                      for provider, skills in SPECIALTIES.items():
                           skill = skills[index % len(skills)]
                           jobs.append(
-                              pool.submit(_primary, provider, skill, index, len(slices), diff_slice, head)
+                              pool.submit(
+                                  _primary, provider, skill, index, len(slices), diff_slice, head
+                              )
                           )
-                  primary = [job.result() for job in as_completed(jobs)]
-              primary.sort(key=lambda r: (r["provider"], r["instance"]))
+                  primary = []
+                  try:
+                      for completed, job in enumerate(as_completed(jobs), 1):
+                          primary.append(job.result())
+                          # Progress receipt contract: tests/test_validator_chain.py.
+                          print(
+                              f"validator primary progress: completed={completed} "
+                              f"total={primary_call_count}",
+                              file=sys.stderr,
+                              flush=True,
+                          )
+                  except Exception:
+                      for job in jobs:
+                          job.cancel()
+                      raise
+              primary.sort(key=lambda r: (r["provider"], r["slice_index"]))
+              _validate_primary_matrix(primary, slices, head)
 
               by_provider = {p: [r for r in primary if r["provider"] == p] for p in SPECIALTIES}
               with ThreadPoolExecutor(max_workers=2) as pool:
                   jobs = [
                       pool.submit(
-                          _cross, "deepseek", "kimi", by_provider["kimi"], slices, deterministic, head
+                          _cross,
+                          "deepseek",
+                          "kimi",
+                          by_provider["kimi"],
+                          slices,
+                          deterministic,
+                          head,
                       ),
                       pool.submit(
-                          _cross, "kimi", "deepseek", by_provider["deepseek"], slices, deterministic, head
+                          _cross,
+                          "kimi",
+                          "deepseek",
+                          by_provider["deepseek"],
+                          slices,
+                          deterministic,
+                          head,
                       ),
                   ]
-                  cross = [job.result() for job in as_completed(jobs)]
+                  cross = []
+                  try:
+                      for completed, job in enumerate(as_completed(jobs), 1):
+                          cross.append(job.result())
+                          # Progress receipt contract: tests/test_validator_chain.py.
+                          print(
+                              f"validator cross progress: completed={completed} total=2",
+                              file=sys.stderr,
+                              flush=True,
+                          )
+                  except Exception:
+                      for job in jobs:
+                          job.cancel()
+                      raise
               cross.sort(key=lambda r: r["provider"])
               final = _final(primary, cross, head)
               return {
                   "schema": SCHEMA,
                   "head_sha": head,
                   "diff_sha256": hashlib.sha256(diff.encode()).hexdigest(),
-                  "coverage": {"reviewed_bytes": len(diff.encode()), "total_bytes": total_bytes},
+                  "coverage": {
+                      "reviewed_bytes": len(diff.encode()),
+                      "total_bytes": total_bytes,
+                      "slice_count": len(slices),
+                      "slice_budget_chars": slice_budget,
+                      "primary_calls": primary_call_count,
+                  },
                   "deterministic_checks": deterministic,
                   "primary": primary,
                   "cross": cross,
@@ -3087,8 +3732,10 @@ jobs:
                   or deterministic.get("head_sha") != args.expected_head
                   or not str(deterministic.get("name", "")).strip()
               ):
-                  print("validator chain requires a successful current-head deterministic receipt",
-                        file=sys.stderr)
+                  print(
+                      "validator chain requires a successful current-head deterministic receipt",
+                      file=sys.stderr,
+                  )
                   return 1
               if len(diff.encode()) != total:
                   print("validator chain refuses partial diff coverage", file=sys.stderr)
@@ -3099,11 +3746,16 @@ jobs:
               except Exception as exc:  # fail closed: provider outage/schema/refusal
                   print(f"validator chain blocked: {type(exc).__name__}: {exc}", file=sys.stderr)
                   return 1
+              full_json = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+              Path(args.out + ".manifest.json").write_text(full_json)
+              posted_manifest = public_manifest(manifest)
               body = (
                   "🤖 **OpenAI final approval** (DeepSeek + Kimi reciprocal specialist chain)\n\n"
                   f"Decision: **{manifest['final']['decision']}** — {manifest['final']['rationale']}\n\n"
+                  "Full per-slice evidence is retained in the validator-manifest Actions artifact; "
+                  "the receipt below commits to it by SHA-256.\n\n"
                   "<!-- validator-chain-manifest\n"
-                  + json.dumps(manifest, sort_keys=True, separators=(",", ":"))
+                  + json.dumps(posted_manifest, sort_keys=True, separators=(",", ":"))
                   + "\n-->"
               )
               Path(args.out).write_text(
@@ -3112,8 +3764,17 @@ jobs:
               status_path = Path(args.out + ".status")
               if not approved:
                   print(f"validator chain rejected: {reason}", file=sys.stderr)
-                  print(json.dumps({"primary": manifest["primary"], "cross": manifest["cross"],
-                                    "final": manifest["final"]}, sort_keys=True), file=sys.stderr)
+                  print(
+                      json.dumps(
+                          {
+                              "primary": manifest["primary"],
+                              "cross": manifest["cross"],
+                              "final": manifest["final"],
+                          },
+                          sort_keys=True,
+                      ),
+                      file=sys.stderr,
+                  )
                   status_path.write_text("rejected\n")
                   return 0  # post the evidence; the workflow's enforcement step stays red
               status_path.write_text("approved\n")
@@ -3153,13 +3814,11 @@ jobs:
           MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_REVIEW_MODEL: ${{ vars.OPENAI_REVIEW_MODEL }}
-          # ai_review.py reads KIMI_REVIEW_MODEL as the discovery override, but
-          # this env block never passed it — so the override was unreachable and
-          # Kimi always fell through to discovery, which picks kimi-k3 and fails
-          # ("Kimi unavailable", measured run 30039196400). With the org variable
-          # set to a model reviewer-key-health proves LIVE (moonshot-v1-8k), this
-          # one line restores the estate's second review source.
-          KIMI_REVIEW_MODEL: ${{ vars.KIMI_REVIEW_MODEL }}
+          # Keep the reviewer selectable without silently falling back to an
+          # 8K route. Kimi's model list dated 2026-07-28 names K3 as the current
+          # 1M-context model; the repository/org variable remains the override.
+          # Source record: docs/research/2026-07-28__validator-model-context-sources.md
+          KIMI_REVIEW_MODEL: ${{ vars.KIMI_REVIEW_MODEL || 'kimi-k3' }}
           # Same failure shape as the Kimi line above, different cause: DeepSeek
           # retired `deepseek-chat`, so the hardcoded name returned HTTP 400
           # ("supported API model names are deepseek-v4-pro or deepseek-v4-flash",
@@ -3174,7 +3833,11 @@ jobs:
         run: |
           python3 -m pip install --quiet certifi pyyaml
           if [ "${{ inputs.provider }}" = "pipeline" ]; then
-            python3 /tmp/aiwf/harness/scripts/validator_chain.py --diff /tmp/pr_diff_full.txt --total-bytes-file /tmp/pr_diff_total_bytes.txt --deterministic-receipt /tmp/deterministic-receipt.json --expected-head "${{ github.event.pull_request.head.sha }}" --out /tmp/review.json
+            # Run 30400693262 received an external hosted-runner shutdown near
+            # 30 minutes before its always() uploads ran. Bound our own model
+            # process first so partial, content-free failure receipts still have
+            # time to be preserved within the explicit job deadline.
+            timeout --signal=TERM --kill-after=15s 20m               python3 -u /tmp/aiwf/harness/scripts/validator_chain.py --diff /tmp/pr_diff_full.txt --total-bytes-file /tmp/pr_diff_total_bytes.txt --deterministic-receipt /tmp/deterministic-receipt.json --expected-head "${{ github.event.pull_request.head.sha }}" --out /tmp/review.json
           else
             python3 /tmp/aiwf/harness/scripts/ai_review.py --provider "${{ inputs.provider }}" --diff /tmp/pr_diff.txt --total-bytes-file /tmp/pr_diff_total_bytes.txt --out /tmp/review.json
           fi
@@ -3183,7 +3846,16 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ai-call-receipts-${{ inputs.provider }}-${{ github.run_attempt }}
-          path: /tmp/ai-call-receipts/receipts.jsonl
+          path: /tmp/ai-call-receipts/receipts.jsonl*
+          include-hidden-files: false
+          if-no-files-found: warn
+          retention-days: 14
+      - name: upload full validator manifest
+        if: always() && inputs.provider == 'pipeline' && steps.applicability.outputs.skip != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: validator-manifest-${{ github.run_attempt }}
+          path: /tmp/review.json.manifest.json
           if-no-files-found: warn
           retention-days: 14
       - name: submit review (review-only, never approve)
