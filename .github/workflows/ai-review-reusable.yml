@@ -36,8 +36,6 @@ jobs:
   review:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      AI_OBJECTIVE_ID: ${{ github.repository }}:${{ github.event.pull_request.number || github.run_id }}:${{ inputs.provider }}
     steps:
       # Applicability, evaluated BEFORE any work: is a third-party review even
       # possible on this PR? Dependabot-triggered workflows receive Dependabot
@@ -964,57 +962,11 @@ jobs:
               provider_metadata: Mapping[str, Any] | None = None,
               writer: Any = None,
           ) -> dict[str, Any]:
-              """Create and durably append a dispatch start before external egress."""
-              metadata = dict(provider_metadata or {})
-              objective_id = metadata.get("idempotency_id") or os.environ.get(
-                  "AI_OBJECTIVE_ID"
-              )
-              if objective_id:
-                  metadata["idempotency_id"] = str(objective_id)[:256]
-                  journal_path = Path(journal)
-                  prior = read_records(journal_path) if journal_path.exists() else []
-                  from attempt_control import decide_attempt
+              """Append an unconditional lifecycle start without hidden admission policy.
 
-                  decision = decide_attempt(
-                      prior,
-                      fingerprint=_fingerprint_record(fingerprint)["value"],
-                      objective_id=metadata["idempotency_id"],
-                      route=requested_route,
-                      scope=scope,
-                      policy_version=os.environ.get("AI_ATTEMPT_POLICY_VERSION", "default/v1"),
-                      failure_ceiling=int(os.environ.get("AI_FAILURE_CEILING", "3")),
-                  )
-                  if decision["action"] == "block":
-                      blocked_start = new_record(
-                          event="dispatch_started",
-                          requested_provider=requested_provider,
-                          requested_route=requested_route,
-                          requested_model=requested_model,
-                          logical_call_id=logical_call_id,
-                          scope=scope,
-                          fingerprint_input=fingerprint,
-                          provider_metadata=metadata,
-                      )
-                      (writer or append_record)(journal, blocked_start)
-                      blocked = new_record(
-                          event="dispatch_blocked",
-                          requested_provider=requested_provider,
-                          requested_route=requested_route,
-                          requested_model=requested_model,
-                          logical_call_id=blocked_start["logical_call_id"],
-                          attempt_id=blocked_start["attempt_id"],
-                          previous_event_id=blocked_start["event_id"],
-                          actual_provider=requested_provider,
-                          actual_route=requested_route,
-                          actual_model=requested_model,
-                          scope=scope,
-                          fingerprint_input=fingerprint,
-                          status="dispatch_blocked",
-                          failure_class="dispatch_blocked",
-                          provider_metadata=metadata,
-                      )
-                      (writer or append_record)(journal, blocked)
-                      raise ReceiptDispatchBlocked("objective failure ceiling reached")
+              Governed callers that need attempt admission must use ``reserve_attempt``.
+              """
+              metadata = dict(provider_metadata or {})
               started = new_record(
                   event="dispatch_started",
                   requested_provider=requested_provider,
@@ -1029,8 +981,7 @@ jobs:
               return started
 
 
-          def finish_attempt(
-              journal: str | os.PathLike[str],
+          def terminal_record(
               started: Mapping[str, Any],
               *,
               status: str,
@@ -1043,7 +994,8 @@ jobs:
               provider_metadata: Mapping[str, Any] | None = None,
               event: str = "attempt_terminal",
           ) -> dict[str, Any]:
-              """Append a terminal linked to its physical attempt and exact start fingerprint."""
+              """Normalize one terminal without mutating the journal."""
+              validate_record(started)
               requested = started["requested"]
               terminal_metadata = dict(provider_metadata or {})
               for field in ("idempotency_id", "revalidation_grant_id"):
@@ -1077,6 +1029,37 @@ jobs:
                   provider_metadata=terminal_metadata,
               )
               terminal["fingerprint"] = started["fingerprint"]
+              validate_record(terminal)
+              return terminal
+
+
+          def finish_attempt(
+              journal: str | os.PathLike[str],
+              started: Mapping[str, Any],
+              *,
+              status: str,
+              failure_class: str | None = None,
+              actual_provider: str | None = None,
+              actual_route: str | None = None,
+              actual_model: str | None = None,
+              usage: Mapping[str, Any] | None = None,
+              cost_estimate: Mapping[str, Any],
+              provider_metadata: Mapping[str, Any] | None = None,
+              event: str = "attempt_terminal",
+          ) -> dict[str, Any]:
+              """Normalize and append a terminal linked to its exact start."""
+              terminal = terminal_record(
+                  started,
+                  status=status,
+                  failure_class=failure_class,
+                  actual_provider=actual_provider,
+                  actual_route=actual_route,
+                  actual_model=actual_model,
+                  usage=usage,
+                  cost_estimate=cost_estimate,
+                  provider_metadata=provider_metadata,
+                  event=event,
+              )
               append_record(journal, terminal)
               return terminal
 
@@ -1264,15 +1247,11 @@ jobs:
                       previous.replace(source)
 
 
-          def append_record(
+          @contextmanager
+          def _journal_owner_lock(
               path: str | os.PathLike[str],
-              record: Mapping[str, Any],
-              *,
-              max_bytes: int = 8 * 1024 * 1024,
-              retention: int = 3,
-          ) -> None:
-              """Atomically append a validated JSON line under a fixed-owner lock."""
-              validate_record(record)
+          ) -> Iterator[Path]:
+              """Hold the journal's fixed-owner lock across one state transition."""
               journal = Path(path)
               _secure_directory(journal.parent)
               lock_path = journal.with_name(f".{journal.name}.lock")
@@ -1284,31 +1263,126 @@ jobs:
                   if journal.exists():
                       check_fd = _secure_open(journal, os.O_RDONLY)
                       os.close(check_fd)
-                  previous_record_hash = _last_record_hash(journal)
-                  _rotate_locked(journal, max_bytes, retention)
-                  fd = _secure_open(journal, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
-                  try:
-                      stored_record = dict(record)
-                      stored_record["previous_record_hash"] = previous_record_hash
-                      stored_record["record_hash"] = _record_digest(stored_record)
-                      encoded = (
-                          json.dumps(
-                              stored_record, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-                          )
-                          + "\n"
-                      ).encode("ascii")
-                      written = os.write(fd, encoded)
-                      if written != len(encoded):
-                          raise ReceiptError("receipt append was incomplete")
-                      os.fsync(fd)
-                      if isinstance(record, dict):
-                          record["previous_record_hash"] = stored_record["previous_record_hash"]
-                          record["record_hash"] = stored_record["record_hash"]
-                  finally:
-                      os.close(fd)
+                  yield journal
               finally:
                   fcntl.flock(lock_fd, fcntl.LOCK_UN)
                   os.close(lock_fd)
+
+
+          def _append_record_locked(
+              journal: Path,
+              record: Mapping[str, Any],
+              *,
+              max_bytes: int = 8 * 1024 * 1024,
+              retention: int = 3,
+          ) -> None:
+              """Append one record while ``_journal_owner_lock`` is held."""
+              validate_record(record)
+              previous_record_hash = _last_record_hash(journal)
+              _rotate_locked(journal, max_bytes, retention)
+              fd = _secure_open(journal, os.O_WRONLY | os.O_APPEND | os.O_CREAT)
+              try:
+                  stored_record = dict(record)
+                  stored_record["previous_record_hash"] = previous_record_hash
+                  stored_record["record_hash"] = _record_digest(stored_record)
+                  encoded = (
+                      json.dumps(
+                          stored_record, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+                      )
+                      + "\n"
+                  ).encode("ascii")
+                  written = os.write(fd, encoded)
+                  if written != len(encoded):
+                      raise ReceiptError("receipt append was incomplete")
+                  os.fsync(fd)
+                  if isinstance(record, dict):
+                      record["previous_record_hash"] = stored_record["previous_record_hash"]
+                      record["record_hash"] = stored_record["record_hash"]
+              finally:
+                  os.close(fd)
+
+
+          def append_record(
+              path: str | os.PathLike[str],
+              record: Mapping[str, Any],
+              *,
+              max_bytes: int = 8 * 1024 * 1024,
+              retention: int = 3,
+          ) -> None:
+              """Atomically append a validated JSON line under a fixed-owner lock."""
+              validate_record(record)
+              with _journal_owner_lock(path) as journal:
+                  _append_record_locked(
+                      journal,
+                      record,
+                      max_bytes=max_bytes,
+                      retention=retention,
+                  )
+
+
+          def reserve_attempt(
+              journal: str | os.PathLike[str],
+              *,
+              requested_provider: str,
+              requested_route: str,
+              requested_model: str,
+              scope: Mapping[str, Any],
+              fingerprint: Mapping[str, Any],
+              objective_id: str,
+              attempt: int,
+              policy_version: str,
+              failure_ceiling: int,
+              logical_call_id: str | None = None,
+          ) -> dict[str, Any]:
+              """Atomically admit and append one explicitly governed attempt start.
+
+              The decision and append share the journal owner lock. Policy inputs are
+              mandatory; environment variables and implicit defaults are never read.
+              """
+              governed_scope = validate_scope(scope)
+              objective = _bounded_string(objective_id, "objective_id")
+              policy = _bounded_string(policy_version, "policy_version")
+              if (
+                  not isinstance(attempt, int)
+                  or isinstance(attempt, bool)
+                  or not isinstance(failure_ceiling, int)
+                  or isinstance(failure_ceiling, bool)
+                  or not 1 <= failure_ceiling <= 100
+                  or not 1 <= attempt <= failure_ceiling
+              ):
+                  raise ReceiptDispatchBlocked("declared attempt exceeds failure ceiling")
+              with _journal_owner_lock(journal) as journal_path:
+                  started = new_record(
+                      event="dispatch_started",
+                      requested_provider=requested_provider,
+                      requested_route=requested_route,
+                      requested_model=requested_model,
+                      logical_call_id=logical_call_id,
+                      scope=governed_scope,
+                      fingerprint_input=fingerprint,
+                      provider_metadata={"idempotency_id": objective},
+                  )
+                  prior = read_records(journal_path) if journal_path.exists() else []
+                  from attempt_control import decide_attempt
+
+                  decision = decide_attempt(
+                      prior,
+                      fingerprint=started["fingerprint"]["value"],
+                      objective_id=objective,
+                      route=requested_route,
+                      scope=governed_scope,
+                      policy_version=policy,
+                      failure_ceiling=failure_ceiling,
+                  )
+                  prior_attempts = decision["prior_attempts"]
+                  if (
+                      decision["action"] != "dispatch"
+                      or len(prior_attempts) >= failure_ceiling
+                      or attempt != len(prior_attempts) + 1
+                  ):
+                      raise ReceiptDispatchBlocked("atomic attempt reservation refused")
+                  _append_record_locked(journal_path, started)
+                  return started
 
 
           def read_records(
