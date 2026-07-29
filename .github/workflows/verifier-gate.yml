@@ -42,7 +42,7 @@ jobs:
       issues: write
       checks: read
     steps:
-      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             // Merge-queue entries: quorum was already enforced at PR level —
@@ -58,21 +58,30 @@ jobs:
               return;
             }
             const pr = context.payload.pull_request;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number, per_page: 100 });
+            const docsOnly = files.length > 0
+              && files.every(f => f.filename.startsWith('docs/') && f.filename.endsWith('.md'));
+            const touchesPrePublication = files.some(
+              f => f.filename.includes('docs/decided/') || f.filename.includes('pre-publication/')
+            );
+            if (docsOnly && touchesPrePublication) {
+              core.info('pre-publication docs-only change: dispatch scrub forbids outbound validator payloads; pass-through.');
+              return;
+            }
             const author = pr.user.login;
             // Dependency-bot PRs: quorum is impossible by construction, not
             // skipped by choice. Dependabot-triggered workflows receive
             // Dependabot secrets, not Actions secrets, so every reviewer key
             // resolves empty and no specialist can ever post (measured
-            // 2026-07-27 org-wide: "MOONSHOT_API_KEY is not set", ~40 PRs).
-            // Failing here would report "quorum not met" when the truth is
-            // "quorum could not be attempted" — a false signal on a required
-            // check, which starves the merge path and trains readers to ignore
-            // red. Dependency bumps stay governed by the deterministic checks,
-            // which run at full force and are what actually catches a bad bump.
-            // Narrow by design: the bot login alone takes this path, so no
-            // human- or agent-authored PR can. Mirrors the applicability gate
-            // in ai-review-reusable.yml (fleet-config#334); both stop being
-            // taken once org-level Dependabot secrets exist.
+            // 2026-07-27 org-wide: "MOONSHOT_API_KEY is not set"). Failing here
+            // would report "quorum not met" when the truth is "quorum could not
+            // be attempted" — a false signal on a required check. Dependency
+            // bumps are governed by the deterministic checks, which run at full
+            // force. Narrow by design: the bot login alone takes this path, so
+            // no human- or agent-authored PR can. Mirrors the applicability
+            // gate in ai-review-reusable.yml; both stop being taken once
+            // org-level Dependabot secrets exist.
             if (author === 'dependabot[bot]') {
               core.info(`${author}: reviewer keys unavailable to Dependabot-triggered runs by GitHub design; deterministic checks govern. Pass-through.`);
               return;
@@ -125,11 +134,21 @@ jobs:
             }
             const primary = Array.isArray(manifest.primary) ? manifest.primary : [];
             const cross = Array.isArray(manifest.cross) ? manifest.cross : [];
+            const sha256 = /^[0-9a-f]{64}$/;
             const providerCount = (name) => primary.filter(
               r => r.provider === name && r.head_sha === headSha
             ).length;
+            const providerInstances = (name) => primary.filter(
+              r => r.provider === name
+            ).reduce(
+              (count, r) => count + (Number.isInteger(r.instance_count) ? r.instance_count : 0),
+              0
+            );
             const skills = (name) => new Set(
               primary.filter(r => r.provider === name).map(r => r.skill)
+            );
+            const aggregateKeys = new Set(
+              primary.map(r => `${r.provider}:${r.skill}`)
             );
             const pairs = new Set(cross.filter(
               r => r.head_sha === headSha && r.validation_complete === true
@@ -138,6 +157,20 @@ jobs:
             const receipts = [...primary, ...cross].map(r => r.receipt).sort();
             const accepted = Array.isArray(manifest.final?.accepted_receipts)
               ? [...manifest.final.accepted_receipts].sort() : [];
+            const aggregateRowsValid = primary.every(r =>
+              r.head_sha === headSha
+              && Number.isInteger(r.instance_count) && r.instance_count > 0
+              && r.receipt === r.receipts_sha256 && sha256.test(r.receipt)
+            );
+            const aggregateInstances = primary.reduce(
+              (count, r) => count + (Number.isInteger(r.instance_count) ? r.instance_count : 0),
+              0
+            );
+            const crossCommitmentsValid = cross.every(r =>
+              sha256.test(r.receipt || '')
+              && sha256.test(r.validates_receipt || '')
+              && sha256.test(r.validation_packets_sha256 || '')
+            );
             const coverage = manifest.coverage || {};
             const deterministic = manifest.deterministic_checks || {};
             const forbiddenDeterministicChecks = new Set([
@@ -159,19 +192,51 @@ jobs:
                 && r.status === 'completed'
                 && r.conclusion === 'success'
               );
+            // Two accepted specialist shapes during the six-skill rollout
+            // (harness/review-skills/): legacy consumers still emit the
+            // 2-skill-per-provider manifest; the current chain emits the
+            // Codex-validated 3-skill-per-provider set. Each shape is checked
+            // strictly — only the shape choice itself is tolerant, so fan-out
+            // order (verifier-gate copy vs reusable copy) cannot strand a
+            // consumer red.
+            const skillShapes = {
+              2: {
+                deepseek: ['correctness-reliability', 'security-boundaries'],
+                kimi: ['tests-operability', 'governance-five-rods'],
+              },
+              3: {
+                deepseek: ['correctness-reliability', 'security-boundaries', 'performance-efficiency'],
+                kimi: ['test-adequacy', 'maintainability-contracts', 'governance-five-rods'],
+              },
+            };
+            const skillsPerProvider = providerCount('deepseek');
+            const shape = skillShapes[skillsPerProvider];
+            const shapeValid = Boolean(shape)
+              && ['deepseek', 'kimi'].every(name =>
+                shape[name].every(skill => skills(name).has(skill))
+              );
+            const minSlices = skillsPerProvider === 2 ? 2 : 3;
             const valid = manifest.schema === 'validator-chain/v1'
+              && manifest.projection === 'validator-chain/public-commitment/v1'
               && manifest.head_sha === headSha
+              && sha256.test(manifest.diff_sha256 || '')
+              && sha256.test(manifest.full_manifest_sha256 || '')
               && coverage.reviewed_bytes === coverage.total_bytes
               && coverage.total_bytes > 0
+              && Number.isInteger(coverage.slice_count) && coverage.slice_count >= minSlices
+              && Number.isInteger(coverage.slice_budget_chars) && coverage.slice_budget_chars > 0
+              && coverage.primary_calls === coverage.slice_count * 2
+              && coverage.primary_calls === aggregateInstances
+              && providerInstances('deepseek') === coverage.slice_count
+              && providerInstances('kimi') === coverage.slice_count
               && deterministicVerified
-              && primary.length >= 4
-              && providerCount('deepseek') >= 2
+              && primary.length === skillsPerProvider * 2
+              && aggregateKeys.size === skillsPerProvider * 2
+              && aggregateRowsValid
               && providerCount('deepseek') === providerCount('kimi')
-              && skills('deepseek').has('correctness-reliability')
-              && skills('deepseek').has('security-boundaries')
-              && skills('kimi').has('tests-operability')
-              && skills('kimi').has('governance-five-rods')
+              && shapeValid
               && cross.length === 2
+              && crossCommitmentsValid
               && pairs.has('deepseek->kimi')
               && pairs.has('kimi->deepseek')
               && manifest.final?.provider === 'openai'
