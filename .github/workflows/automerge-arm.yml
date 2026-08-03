@@ -53,7 +53,7 @@ jobs:
           # PR is already in a decided state, and that door belongs to the
           # sanctioned manual path, never to this job.
           if gh pr merge --auto --squash "$PR_URL"; then
-            echo "armed: GitHub merges when every required check passes"
+            echo "armed — the merge happens only after required checks finish"
           else
             echo "::notice::arming refused — PR already in a decided state; use the sanctioned manual door if it should land"
           fi
