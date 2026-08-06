@@ -27,6 +27,11 @@ on:
         required: false
         type: string
         default: "lint-and-verify"
+      deterministic_result:
+        description: "Exact same-run needs result; empty preserves legacy polling"
+        required: false
+        type: string
+        default: ""
 permissions:
   contents: read
   pull-requests: write
@@ -54,7 +59,7 @@ jobs:
       # must be Markdown under docs/, and at least one must carry a scrub marker.
       - name: applicability — can a third-party review run at all?
         id: applicability
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v8.0.0
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v8.0.0
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -2437,9 +2442,23 @@ jobs:
 
 
           def _discover_kimi_model(key: str) -> str:
+              # "kimi-latest" (previous pref) and "kimi-k2-0711-preview" (previous
+              # fallback) are both gone from /v1/models (measured live 2026-08-01: 12
+              # models, neither present). Worse: this file's own reviewer payload
+              # (temperature=1, max_tokens=1200 total budget) and DIFF_CHAR_LIMITS are
+              # sized for a non-reasoning, 8k-context model (see the max_tokens comment
+              # below and harness/review-skills/README.md's 8k-window note) — with
+              # "kimi-" as the prefix, the old fallback path reverse-sorts to
+              # "kimi-k3", a REASONING model whose hidden reasoning_tokens can consume
+              # the entire 1200-token budget before any visible content is written,
+              # producing an empty review (measured: a realistic PR-diff-sized prompt
+              # at this exact payload shape did not return within 2 minutes; a trivial
+              # prompt returned content but spent 29 of 45 completion tokens on
+              # reasoning_tokens alone). moonshot-v1-8k is confirmed live and is the
+              # non-reasoning model this file's sizing already assumes.
               return _discover_model(
                   "https://api.moonshot.ai/v1/models", key,
-                  ["kimi-latest"], "kimi-", "kimi-k2-0711-preview",
+                  ["kimi-latest", "moonshot-v1-8k"], "moonshot-v1-", "moonshot-v1-8k",
               )
 
 
@@ -2964,7 +2983,11 @@ jobs:
               only ~85 completion tokens, so finish_reason=length truncated JSON and the
               larger adaptive budget made the squeeze worse.
               """
-              if "8k" not in model.lower():
+              # Exact-model check: "moonshot-v1-128k" CONTAINS the substring "8k", so a
+              # bare `"8k" in model` misclassifies the 128k long-context model and caps
+              # its prompts at 8,000 chars (observed estate-machine#78 run 30832173572,
+              # 2026-08-03: chars=62412 cap=8000 under KIMI_REVIEW_MODEL=moonshot-v1-128k).
+              if "moonshot-v1-8k" not in model.lower():
                   return requested
               if len(prompt) > _KIMI_8K_SAFE_PROMPT_CHARS:
                   raise RuntimeError(
@@ -3865,7 +3888,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
           DETERMINISTIC_CHECK: ${{ inputs.deterministic_check }}
+          DETERMINISTIC_RESULT: ${{ inputs.deterministic_result }}
         run: |
+          if [ -n "$DETERMINISTIC_RESULT" ]; then
+            if [ "$DETERMINISTIC_RESULT" != "success" ]; then
+              echo "::error::$DETERMINISTIC_CHECK dependency result is $DETERMINISTIC_RESULT"
+              exit 1
+            fi
+            jq -n --arg name "$DETERMINISTIC_CHECK" --arg head "$EXPECTED_HEAD"               '{name:$name, conclusion:"success", head_sha:$head}' > /tmp/deterministic-receipt.json
+            exit 0
+          fi
           for attempt in $(seq 1 30); do
             state=$(gh api "repos/${{ github.repository }}/commits/$EXPECTED_HEAD/check-runs"               --jq "[.check_runs[] | select(.name == \"$DETERMINISTIC_CHECK\")] | last | \"\(.status):\(.conclusion)\"" 2>/dev/null || true)
             if [ "$state" = "completed:success" ]; then

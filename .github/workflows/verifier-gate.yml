@@ -31,6 +31,18 @@ on:
   # queued, estate-gate + vault-ci reported on the merge_group head at 20:53
   # and 21:55, verifier-gate never did, both entries expired).
   merge_group: {}
+  # workflow_run closes the re-trigger gap (fr_e605967670a7, measured
+  # 2026-08-03 estate-wide): the validator chain posts its reviews with
+  # GITHUB_TOKEN, and bot-token events start no workflows, so the
+  # pull_request_review trigger above never fires for them — the gate
+  # false-failed at ~5s on every armed PR and stayed red until a manual
+  # rerun. The validator workflow's own completion is the re-check signal.
+  # Both names listed: the vault hosts the chain inside vault-ci; fleet
+  # repos host it in a workflow named validator-pipeline. A name that does
+  # not exist in a given repo simply never fires.
+  workflow_run:
+    workflows: [validator-pipeline, vault-ci]  # gap record: fr_e605967670a7, 2026-08-03
+    types: [completed]  # per fr_e605967670a7 and docs in this block
 permissions:
   pull-requests: read
   checks: read
@@ -42,7 +54,7 @@ jobs:
       issues: write
       checks: read
     steps:
-      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             // Merge-queue entries: quorum was already enforced at PR level —
@@ -57,7 +69,48 @@ jobs:
               core.info('merge_group: quorum enforced at PR stage; pass-through.');
               return;
             }
-            const pr = context.payload.pull_request;
+            let pr = context.payload.pull_request;
+            if (context.eventName === 'workflow_run') {
+              // Bounded workflow_run admission — every outcome on this path
+              // either resolves to a full verification below or fails closed.
+              // A quiet success return is forbidden here: this job's check
+              // run attaches to the triggering run's head SHA, and a
+              // success-status check on a PR head would satisfy the required
+              // context unverified.
+              const wr = context.payload.workflow_run || {};
+              const sha40 = /^[0-9a-f]{40}$/;
+              const repoFull = `${context.repo.owner}/${context.repo.repo}`;
+              if (!sha40.test(wr.head_sha || '')) {
+                core.setFailed('Verifier gate: malformed workflow_run payload.');
+                return;
+              }
+              if (wr.conclusion !== 'success') {
+                core.setFailed(`Verifier gate: validator workflow concluded ${wr.conclusion || 'unknown'} — no basis to verify.`);
+                return;
+              }
+              if (wr.head_repository?.full_name !== repoFull) {
+                core.setFailed('Verifier gate: validator run head is not from this repository.');
+                return;
+              }
+              const openPrs = await github.paginate(github.rest.pulls.list, {
+                owner: context.repo.owner, repo: context.repo.repo,
+                state: 'open', per_page: 100 });
+              const found = openPrs.find(p => p.head?.sha === wr.head_sha);
+              if (!found) {
+                core.setFailed('Verifier gate: no open PR at the validator head — superseded or closed; nothing verifiable.');
+                return;
+              }
+              if (found.head?.repo?.full_name !== repoFull
+                  || found.base?.repo?.full_name !== repoFull) {
+                core.setFailed('Verifier gate: this path admits same-repo PR heads only.');
+                return;
+              }
+              pr = found;
+            }
+            if (!pr || !pr.head || !pr.user) {
+              core.setFailed(`Verifier gate: unsupported event ${context.eventName} or missing PR payload.`);
+              return;
+            }
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number, per_page: 100 });
             const docsOnly = files.length > 0
