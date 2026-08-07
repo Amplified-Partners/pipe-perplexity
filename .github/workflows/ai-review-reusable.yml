@@ -3998,11 +3998,7 @@ jobs:
             echo "::error::specialist or final validator rejected this head"
             exit 1
           }
-      - name: nudge verifier-gate re-run (bot reviews emit no workflow events)
-        if: always() && steps.applicability.outputs.skip != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-        run: |
-          rid=$(gh run list --repo "${{ github.repository }}" --workflow verifier-gate.yml --branch "$HEAD_REF" --limit 1 --json databaseId --jq '.[0].databaseId' 2>/dev/null || true)
-          if [ -n "$rid" ]; then gh run rerun "$rid" --repo "${{ github.repository }}" 2>/dev/null || gh run rerun "$rid" --repo "${{ github.repository }}" --failed 2>/dev/null || echo "verifier nudge skipped"; else echo "no verifier run to nudge"; fi
+      # No verifier-gate nudge step here: bot reviews emit no workflow events,
+      # but that gap is closed at the other end — verifier-gate waits for this
+      # chain's own check run on the head SHA. See its "await the validator
+      # chain" block.
