@@ -62,17 +62,41 @@ jobs:
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v8.0.0
         with:
           script: |
+            const crypto = require('crypto');
             const pr = context.payload.pull_request;
             const actor = pr.user.login;
+
+            // Net-diff hash: stable, API-native fingerprint of the PR's changed files.
+            // We hash the sorted filename:blob-sha pairs from pulls.listFiles. This is
+            // cheaper than materialising the full textual diff and is identical on both
+            // the validator chain and verifier-gate sides. Collision semantics: it is a
+            // strong fingerprint of the changed-file set and the head-side blob of each
+            // changed file, not of the full base..head diff bytes. A collision would
+            // require two distinct PR states that yield the same changed files with the
+            // same head blobs -- effectively a content collision or an identical source
+            // tree reached by different histories. For merge-main syncs and empty
+            // retriggers the value is stable, and any actual source change alters at
+            // least one file blob or name.
+            const diffHash = (files) => {
+              const pairs = files
+                .filter(f => f.filename && f.sha)
+                .map(f => `${f.filename}:${f.sha}`)
+                .sort();
+              return crypto.createHash('sha256').update(pairs.join('\n')).digest('hex');
+            };
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              pull_number: pr.number, per_page: 100
+            });
+            const currentDiffHash = diffHash(files);
+            core.setOutput('diff_hash', currentDiffHash);
+
             if (actor === 'dependabot[bot]') {
               core.setOutput('skip', 'true');
               core.notice(`AI review NOT APPLICABLE — dependency bump by ${actor}. Reviewer keys are unavailable to Dependabot-triggered runs by GitHub design; deterministic checks govern this PR.`);
               return;
             }
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner: context.repo.owner, repo: context.repo.repo,
-              pull_number: pr.number, per_page: 100
-            });
             const docsOnly = files.length > 0
               && files.every(f => f.filename.startsWith('docs/') && f.filename.endsWith('.md'));
             const touchesPrePublication = files.some(
@@ -83,7 +107,60 @@ jobs:
               core.notice('AI review NOT APPLICABLE — pre-publication docs cannot leave the dispatch scrub boundary; deterministic checks govern this PR.');
               return;
             }
+
+            // Skip an expensive re-review when the net diff is unchanged: look for an
+            // existing validator manifest whose diff_hash matches the current PR. If one
+            // exists, repost it for the new head (a single cheap comment) instead of
+            // burning another 3-provider review cycle. The gate accepts the manifest by
+            // content, not by head SHA.
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number
+            });
+            const manifestRe = /<!-- validator-chain-manifest\s*\n([\s\S]*?)\n-->/;
+            let cachedReview = null;
+            for (const r of reviews) {
+              if (r.user?.login !== 'github-actions[bot]') continue;
+              if (!r.body || !r.body.includes('OpenAI final approval')) continue;
+              const m = r.body.match(manifestRe);
+              if (!m) continue;
+              try {
+                const manifest = JSON.parse(m[1]);
+                if (
+                  manifest.schema === 'validator-chain/v1'
+                  && manifest.projection === 'validator-chain/public-commitment/v1'
+                  && manifest.diff_hash === currentDiffHash
+                ) {
+                  cachedReview = r;
+                  break;
+                }
+              } catch (e) {
+                continue;
+              }
+            }
+            if (cachedReview) {
+              core.setOutput('skip', 'true');
+              core.setOutput('diff_match', 'true');
+              core.setOutput('cached_manifest_body', cachedReview.body);
+              core.notice(`AI review SKIPPED — net diff unchanged (${currentDiffHash.slice(0,8)}). Reposting cached manifest for ${pr.head.sha.slice(0,8)}.`);
+              return;
+            }
+
             core.setOutput('skip', 'false');
+            core.setOutput('diff_match', 'false');
+      - name: repost cached manifest for new head
+        if: steps.applicability.outputs.diff_match == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BODY: ${{ steps.applicability.outputs.cached_manifest_body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          current=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" --jq .head.sha)
+          if [ "$current" != "$EXPECTED_HEAD" ]; then
+            echo "::error::stale diff-match repost: expected $EXPECTED_HEAD, current $current"
+            exit 1
+          fi
+          jq -n --arg body "$BODY" --arg commit "$EXPECTED_HEAD" '{"event":"COMMENT","commit_id":$commit,"body":$body}' |             gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews" -X POST --input -
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.applicability.outputs.skip != 'true'
         with: { fetch-depth: 0 }
@@ -3539,6 +3616,10 @@ jobs:
                   or not re.fullmatch(
                       r"[0-9a-f]{64}", str(manifest.get("full_manifest_sha256", ""))
                   )
+                  or (
+                      "diff_hash" in manifest
+                      and not re.fullmatch(r"[0-9a-f]{64}", str(manifest["diff_hash"]))
+                  )
               ):
                   return False, "public projection schema, head, or artifact commitment mismatch"
               deterministic = manifest.get("deterministic_checks", {})
@@ -3689,7 +3770,7 @@ jobs:
                   + [record["receipt"] for record in cross]
               )
               full_json = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
-              return {
+              public: dict = {
                   "schema": manifest["schema"],
                   "projection": PUBLIC_PROJECTION,
                   "head_sha": manifest["head_sha"],
@@ -3707,9 +3788,12 @@ jobs:
                       "accepted_receipts": accepted,
                   },
               }
+              if "diff_hash" in manifest:
+                  public["diff_hash"] = manifest["diff_hash"]
+              return public
 
 
-          def run(diff: str, total_bytes: int, deterministic: dict, head: str) -> dict:
+          def run(diff: str, total_bytes: int, deterministic: dict, head: str, diff_hash: str | None = None) -> dict:
               slice_budget = _slice_char_budget()
               slices = _diff_slices(diff, max_chars=slice_budget)
               primary_call_count = len(slices) * len(SPECIALTIES)
@@ -3795,7 +3879,7 @@ jobs:
                       raise
               cross.sort(key=lambda r: r["provider"])
               final = _final(primary, cross, head)
-              return {
+              manifest: dict = {
                   "schema": SCHEMA,
                   "head_sha": head,
                   "diff_sha256": hashlib.sha256(diff.encode()).hexdigest(),
@@ -3811,6 +3895,9 @@ jobs:
                   "cross": cross,
                   "final": final,
               }
+              if diff_hash is not None:
+                  manifest["diff_hash"] = diff_hash
+              return manifest
 
 
           def main() -> int:
@@ -3819,6 +3906,7 @@ jobs:
               parser.add_argument("--total-bytes-file", required=True)
               parser.add_argument("--expected-head", required=True)
               parser.add_argument("--deterministic-receipt", required=True)
+              parser.add_argument("--diff-hash", default="")
               parser.add_argument("--out", required=True)
               args = parser.parse_args()
               diff = Path(args.diff).read_text(errors="replace")
@@ -3837,8 +3925,9 @@ jobs:
               if len(diff.encode()) != total:
                   print("validator chain refuses partial diff coverage", file=sys.stderr)
                   return 1
+              diff_hash = args.diff_hash or None
               try:
-                  manifest = run(diff, total, deterministic, args.expected_head)
+                  manifest = run(diff, total, deterministic, args.expected_head, diff_hash)
                   approved, reason = validate_manifest(manifest, args.expected_head)
               except Exception as exc:  # fail closed: provider outage/schema/refusal
                   print(f"validator chain blocked: {type(exc).__name__}: {exc}", file=sys.stderr)
@@ -3943,7 +4032,7 @@ jobs:
             # 30 minutes before its always() uploads ran. Bound our own model
             # process first so partial, content-free failure receipts still have
             # time to be preserved within the explicit job deadline.
-            timeout --signal=TERM --kill-after=15s 20m               python3 -u /tmp/aiwf/harness/scripts/validator_chain.py --diff /tmp/pr_diff_full.txt --total-bytes-file /tmp/pr_diff_total_bytes.txt --deterministic-receipt /tmp/deterministic-receipt.json --expected-head "${{ github.event.pull_request.head.sha }}" --out /tmp/review.json
+            timeout --signal=TERM --kill-after=15s 20m               python3 -u /tmp/aiwf/harness/scripts/validator_chain.py --diff /tmp/pr_diff_full.txt --total-bytes-file /tmp/pr_diff_total_bytes.txt --deterministic-receipt /tmp/deterministic-receipt.json --expected-head "${{ github.event.pull_request.head.sha }}" --diff-hash "${{ steps.applicability.outputs.diff_hash }}" --out /tmp/review.json
           else
             python3 /tmp/aiwf/harness/scripts/ai_review.py --provider "${{ inputs.provider }}" --diff /tmp/pr_diff.txt --total-bytes-file /tmp/pr_diff_total_bytes.txt --out /tmp/review.json
           fi

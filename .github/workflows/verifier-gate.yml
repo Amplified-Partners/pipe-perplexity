@@ -76,6 +76,8 @@ jobs:
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
+            const crypto = require('crypto');
+
             // Merge-queue entries: quorum was already enforced at PR level —
             // a PR cannot ENTER the queue until every required check,
             // verifier-gate included, has succeeded on its head. The merge_group
@@ -95,6 +97,18 @@ jobs:
             }
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number, per_page: 100 });
+            // Net-diff hash: identical method as ai-review-reusable.yml. We hash the
+            // sorted filename:blob-sha pairs from pulls.listFiles. It is an API-native,
+            // strong fingerprint of the changed-file set and head-side blobs, not the
+            // full base..head diff bytes; any actual source change alters a file blob
+            // or name. See ai-review-reusable.yml for the collision note.
+            const currentDiffHash = (() => {
+              const pairs = files
+                .filter(f => f.filename && f.sha)
+                .map(f => `${f.filename}:${f.sha}`)
+                .sort();
+              return crypto.createHash('sha256').update(pairs.join('\n')).digest('hex');
+            })();
             const docsOnly = files.length > 0
               && files.every(f => f.filename.startsWith('docs/') && f.filename.endsWith('.md'));
             const touchesPrePublication = files.some(
@@ -137,9 +151,18 @@ jobs:
               if (b.includes('OpenAI final approval')) return 'github-actions[bot]:openai-final';
               return r.user.login;
             };
-            // Current-head final approval, re-read on each poll. Head-binding is
-            // the r.commit_id !== headSha filter below; proven by
-            // tests/test_verifier_gate_wait.py::test_manifest_arriving_mid_wait_exits_the_loop.
+            // Final approval, re-read on each poll. By default we bind to the
+            // current head SHA; if the content is unchanged (matching diff_hash)
+            // we also accept a manifest produced for an earlier head. This closes
+            // the empty-retrigger / merge-main-sync cost bleed without weakening
+            // the manifest's internal cryptographic checks.
+            const manifestRe = /<!-- validator-chain-manifest\s*\n([\s\S]*?)\n-->/;
+            const manifestDiffHash = (body) => {
+              const m = (body || '').match(manifestRe);
+              if (!m) return null;
+              try { return JSON.parse(m[1]).diff_hash || null; }
+              catch (e) { return null; }
+            };
             const readFinalReview = async () => {
               const reviews = await github.paginate(github.rest.pulls.listReviews, {
                 owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number });
@@ -147,7 +170,7 @@ jobs:
               for (const r of reviews) {
                 if (!r.user || r.user.login === author) continue;
                 if (r.state === 'PENDING') continue;
-                if (r.commit_id !== headSha) continue;
+                if (r.commit_id !== headSha && manifestDiffHash(r.body) !== currentDiffHash) continue;
                 const key = sourceKey(r);
                 const prev = latest.get(key);
                 if (!prev || new Date(r.submitted_at) > new Date(prev.submitted_at)) latest.set(key, r);
@@ -262,6 +285,7 @@ jobs:
                 + 'exists for this head. Mark the PR ready for review to run it.');
               return;
             }
+            core.info(`verifier-gate: current diff-hash ${currentDiffHash.slice(0, 8)}`);
             // A transient API error is not a verdict.
             //
             // Waiting turns ~3 API calls per run into up to ~50 polls, each
@@ -283,6 +307,38 @@ jobs:
             const repoll = async () => {
               await new Promise(r => setTimeout(r, POLL_MS));
               return settle(readFinalReview, 'review-read', undefined);
+            };
+            // Wait for the manifest's named deterministic check to report on the
+            // current head. The diff-match path can find a cached manifest seconds
+            // after a push, before lint-and-verify has finished; this closes that
+            // race without weakening the requirement that the check must succeed.
+            // A missing check fails after the same GRACE_MS used for the chain,
+            // and an in-flight check is bounded by DEADLINE_MS.
+            const waitForDeterministicCheck = async (name) => {
+              const startedDeterministic = Date.now();
+              while (true) {
+                const runs = await settle(async () => github.paginate(github.rest.checks.listForRef, {
+                  owner: context.repo.owner, repo: context.repo.repo, ref: headSha, per_page: 100
+                }), 'check-run-read', null);
+                if (runs !== null) {
+                  const run = runs.find(r => r.name === name);
+                  if (run) {
+                    // status/conclusion vocabulary: https://docs.github.com/en/rest/checks/runs
+                    if (run.status === 'completed') {
+                      return run.conclusion === 'success' ? 'success' : 'failure';
+                    }
+                  } else {
+                    const waited = Date.now() - startedDeterministic;
+                    if (waited > GRACE_MS) return 'absent';
+                  }
+                }
+                const waited = Date.now() - startedDeterministic;
+                if (waited > DEADLINE_MS) return 'timeout';
+                core.info(
+                  `Verifier gate: deterministic check ${name} still running for `
+                  + `${headSha.slice(0, 8)}, ${Math.round(waited / 1000)}s elapsed; waiting...`);
+                await new Promise(r => setTimeout(r, POLL_MS));
+              }
             };
             const started = Date.now();
             let finalReview = await settle(readFinalReview, 'review-read', undefined);
@@ -348,11 +404,27 @@ jobs:
               core.setFailed(`Verifier gate: invalid chain manifest JSON (${e.message}).`);
               return;
             }
+            const deterministicName = manifest.deterministic_checks?.name;
+            if (typeof deterministicName === 'string' && deterministicName.length > 0) {
+              const deterministicState = await waitForDeterministicCheck(deterministicName);
+              if (deterministicState !== 'success') {
+                core.setFailed(
+                  `Verifier gate: deterministic check ${deterministicName} ${deterministicState} for ${headSha.slice(0, 8)}.`);
+                return;
+              }
+            }
             const primary = Array.isArray(manifest.primary) ? manifest.primary : [];
             const cross = Array.isArray(manifest.cross) ? manifest.cross : [];
             const sha256 = /^[0-9a-f]{64}$/;
+            const reviewedHead = manifest.head_sha;
+            const headBound = reviewedHead === headSha;
+            const diffMatch = !headBound && manifest.diff_hash === currentDiffHash;
+            if (!headBound && !diffMatch) {
+              core.setFailed('Verifier gate: staged manifest is bound to a different head and its diff_hash does not match the current PR.');
+              return;
+            }
             const providerCount = (name) => primary.filter(
-              r => r.provider === name && r.head_sha === headSha
+              r => r.provider === name && r.head_sha === reviewedHead
             ).length;
             const providerInstances = (name) => primary.filter(
               r => r.provider === name
@@ -367,14 +439,14 @@ jobs:
               primary.map(r => `${r.provider}:${r.skill}`)
             );
             const pairs = new Set(cross.filter(
-              r => r.head_sha === headSha && r.validation_complete === true
+              r => r.head_sha === reviewedHead && r.validation_complete === true
                 && Array.isArray(r.confirmed_blockers) && r.confirmed_blockers.length === 0
             ).map(r => `${r.provider}->${r.validates_provider}`));
             const receipts = [...primary, ...cross].map(r => r.receipt).sort();
             const accepted = Array.isArray(manifest.final?.accepted_receipts)
               ? [...manifest.final.accepted_receipts].sort() : [];
             const aggregateRowsValid = primary.every(r =>
-              r.head_sha === headSha
+              r.head_sha === reviewedHead
               && Number.isInteger(r.instance_count) && r.instance_count > 0
               && r.receipt === r.receipts_sha256 && sha256.test(r.receipt)
             );
@@ -399,7 +471,7 @@ jobs:
             const deterministicVerified =
               typeof deterministic.name === 'string'
               && deterministic.name.length > 0
-              && deterministic.head_sha === headSha
+              && (headBound ? deterministic.head_sha === headSha : true)
               && deterministic.conclusion === 'success'
               && !forbiddenDeterministicChecks.has(deterministic.name)
               // Current-head status binding is exercised by tests/test_ai_review_reusable_sync.py.
@@ -443,8 +515,9 @@ jobs:
             const checks = [
               ['schema', manifest.schema === 'validator-chain/v1'],
               ['projection', manifest.projection === 'validator-chain/public-commitment/v1'],
-              ['manifest.head_sha==head', manifest.head_sha === headSha],
+              ['manifest.head_sha==head', headBound || diffMatch],
               ['diff_sha256', sha256.test(manifest.diff_sha256 || '')],
+              ['diff_hash', (!manifest.diff_hash && headBound) || (sha256.test(manifest.diff_hash || '') && manifest.diff_hash === currentDiffHash)],
               ['full_manifest_sha256', sha256.test(manifest.full_manifest_sha256 || '')],
               // coverage/* mirror the manifest contract in harness/scripts/validator_chain.py
               ['coverage.complete', coverage.reviewed_bytes === coverage.total_bytes],
@@ -466,7 +539,7 @@ jobs:
               ['cross:deepseek->kimi', pairs.has('deepseek->kimi')],
               ['cross:kimi->deepseek', pairs.has('kimi->deepseek')],
               ['final.provider', manifest.final?.provider === 'openai'],
-              ['final.head_sha', manifest.final?.head_sha === headSha],
+              ['final.head_sha', manifest.final?.head_sha === reviewedHead],
               ['final.decision==APPROVE', manifest.final?.decision === 'APPROVE'],
               ['receipts==accepted', JSON.stringify(receipts) === JSON.stringify(accepted)],
             ];
